@@ -1,0 +1,8 @@
+name: "Marty Workspace"
+description: "Example Marty workspace configuration"
+includes: 
+  - "crates/**"
+plugins:
+  - name: "cargo"
+    path: "builtin"
+    enabled: true

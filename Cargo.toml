@@ -1,0 +1,50 @@
+[workspace]
+members = ["crates/*", "plugins/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Cody Spate <cody@spate.dev>"]
+
+[workspace.lints.clippy]
+# Readability
+redundant_else = "warn"
+needless_return = "warn"
+explicit_iter_loop = "warn"
+# Consistency
+inconsistent_struct_constructor = "warn"
+enum_variant_names = "warn"
+# Performance
+needless_collect = "warn"
+vec_init_then_push = "warn"
+# Prevent panics
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
+[workspace.lints.rust]
+# Readability
+unused_variables = "warn"
+dead_code = "warn"
+unreachable_code = "warn"
+unused_imports = "warn"
+# Consistency
+non_camel_case_types = "warn"
+non_snake_case = "warn"
+# Performance
+unused_mut = "warn"
+# Prevent panics
+unsafe_code = "forbid"
+
+[workspace.dependencies]
+toml = "0.8"
+tempfile = "3.10"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde_json = "1"
+wasmtime = "15"
+wasmtime-wasi = "15"
+wasi-cap-std-sync = "15"
+wasi-common = "15"
+serde = { version = "1", features = ["derive"] }

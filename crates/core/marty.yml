@@ -1,0 +1,8 @@
+tags:
+  - rust
+dependencies:
+  - marty_plugin_protocol
+tasks:
+  - name: build
+    description: "Custom build task for marty_core"
+    command: ["cargo", "build", "-p", "marty_core"]

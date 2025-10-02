@@ -1,0 +1,17 @@
+[package]
+name = "marty-plugin-typescript"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+marty_plugin_protocol = { path = "../../crates/plugin_protocol" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+assert_cmd = "2"

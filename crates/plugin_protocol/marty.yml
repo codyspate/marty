@@ -1,0 +1,4 @@
+name: marty_plugin_protocol
+description: Plugin protocol for Marty workspace providers
+tags:
+  - rust

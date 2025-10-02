@@ -1,0 +1,17 @@
+[package]
+name = "marty-plugin-cargo"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+clap = { version = "4", features = ["derive"] }
+marty_plugin_protocol = { path = "../../crates/plugin_protocol" }
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+assert_cmd = "2"

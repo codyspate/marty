@@ -1,0 +1,12 @@
+[package]
+name = "marty_cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+marty_core = { path = "../core" }
+clap.workspace = true
+anyhow.workspace = true
+tokio = { version = "1.0", features = ["full"] }
+colored = "2.0"

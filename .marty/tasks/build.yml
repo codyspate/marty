@@ -1,0 +1,15 @@
+name: "Build Tasks"
+description: "Common build tasks for the workspace"
+tags: 
+  - rust
+tasks:
+  - name: "build"
+    description: "Build all projects"
+    command: ["cargo", "build"]
+  - name: "test"
+    description: "Run tests for all projects"
+    command: ["cargo", "test"]
+    dependencies: ["build"]
+  - name: "clean"
+    description: "Clean build artifacts"
+    command: ["cargo", "clean"]
