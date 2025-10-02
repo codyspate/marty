@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository = "https://github.com/codyspate/marty"
+description = "Core business logic and workspace management for Marty monorepo tool"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 schemars = "1.0"
@@ -17,7 +19,7 @@ colored = "2.1"
 anyhow.workspace = true
 serde_json.workspace = true
 toml.workspace = true
-marty_plugin_protocol = { path = "../plugin_protocol" }
+marty_plugin_protocol = { version = "0.1.0", path = "../plugin_protocol" }
 wasmtime.workspace = true
 wasmtime-wasi.workspace = true
 wasi-common.workspace = true

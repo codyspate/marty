@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository = "https://github.com/codyspate/marty"
+description = "Protocol definitions for Marty workspace provider plugins"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

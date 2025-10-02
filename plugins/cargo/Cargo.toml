@@ -4,12 +4,14 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository = "https://github.com/codyspate/marty"
+description = "Cargo workspace provider plugin for Marty"
+license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
 anyhow.workspace = true
 clap = { version = "4", features = ["derive"] }
-marty_plugin_protocol = { path = "../../crates/plugin_protocol" }
+marty_plugin_protocol = { version = "0.1.0", path = "../../crates/plugin_protocol" }
 serde_json.workspace = true
 toml.workspace = true
 
