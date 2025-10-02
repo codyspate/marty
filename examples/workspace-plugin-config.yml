@@ -1,0 +1,38 @@
+# Example workspace.yml configuration showing direct plugin URL usage
+# This demonstrates how to configure plugins using GitHub release URLs
+
+# Workspace configuration
+name: example-workspace
+version: "1.0.0"
+
+# Plugin configuration using direct GitHub release URLs
+plugins:
+  # Cargo plugin - detects Cargo workspaces and projects
+  - name: cargo
+    # Direct URL to the dynamic library from GitHub releases
+    # Replace the version and target as appropriate for your system
+    url: https://github.com/codyspate/marty/releases/download/marty-plugin-cargo-v0.2.2/marty-plugin-cargo-v0.2.2-x86_64-unknown-linux-gnu.so
+    
+  # PNPM plugin - detects PNPM workspaces and projects  
+  - name: pnpm
+    # For macOS (Intel)
+    url: https://github.com/codyspate/marty/releases/download/marty-plugin-pnpm-v0.2.0/marty-plugin-pnpm-v0.2.0-x86_64-apple-darwin.dylib
+    
+  # TypeScript plugin - detects TypeScript projects
+  - name: typescript
+    # For Windows
+    url: https://github.com/codyspate/marty/releases/download/marty-plugin-typescript-v0.2.0/marty-plugin-typescript-v0.2.0-x86_64-pc-windows-msvc.dll
+
+# Available target platforms and extensions:
+# Linux x64:   x86_64-unknown-linux-gnu.so
+# Linux ARM64: aarch64-unknown-linux-gnu.so  
+# macOS x64:   x86_64-apple-darwin.dylib
+# macOS ARM64: aarch64-apple-darwin.dylib
+# Windows x64: x86_64-pc-windows-msvc.dll
+
+# Projects configuration (your actual projects would go here)
+projects:
+  - path: "./my-rust-project"
+    language: rust
+  - path: "./my-node-project" 
+    language: javascript
