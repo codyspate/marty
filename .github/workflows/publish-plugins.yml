@@ -105,28 +105,20 @@ jobs:
           cd plugins/cargo/target/${{ matrix.target }}/release
           if [ "${{ matrix.ext }}" = "dll" ]; then
             PLUGIN_FILE="marty_plugin_cargo.dll"
+            OUTPUT_FILE="marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.dll"
           else
             PLUGIN_FILE="libmarty_plugin_cargo.${{ matrix.ext }}"
+            OUTPUT_FILE="marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.${{ matrix.ext }}"
           fi
           
-          # Create release package
-          mkdir -p marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}
-          cp $PLUGIN_FILE marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}/
-          
-          # Create archive
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.zip marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}
-          else
-            tar czf marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.tar.gz marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}
-          fi
+          # Copy and rename the dynamic library for release
+          cp $PLUGIN_FILE $OUTPUT_FILE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: marty-plugin-cargo-${{ matrix.target }}
-          path: |
-            plugins/cargo/target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.tar.gz
-            plugins/cargo/target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.zip
+          path: plugins/cargo/target/${{ matrix.target }}/release/marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.*
 
   publish-pnpm-plugin:
     needs: detect-changes
@@ -177,28 +169,20 @@ jobs:
           cd plugins/pnpm/target/${{ matrix.target }}/release
           if [ "${{ matrix.ext }}" = "dll" ]; then
             PLUGIN_FILE="marty_plugin_pnpm.dll"
+            OUTPUT_FILE="marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.dll"
           else
             PLUGIN_FILE="libmarty_plugin_pnpm.${{ matrix.ext }}"
+            OUTPUT_FILE="marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.${{ matrix.ext }}"
           fi
           
-          # Create release package
-          mkdir -p marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}
-          cp $PLUGIN_FILE marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}/
-          
-          # Create archive
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.zip marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}
-          else
-            tar czf marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.tar.gz marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}
-          fi
+          # Copy and rename the dynamic library for release
+          cp $PLUGIN_FILE $OUTPUT_FILE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: marty-plugin-pnpm-${{ matrix.target }}
-          path: |
-            plugins/pnpm/target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.tar.gz
-            plugins/pnpm/target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.zip
+          path: plugins/pnpm/target/${{ matrix.target }}/release/marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.*
 
   publish-typescript-plugin:
     needs: detect-changes
@@ -249,28 +233,20 @@ jobs:
           cd plugins/typescript/target/${{ matrix.target }}/release
           if [ "${{ matrix.ext }}" = "dll" ]; then
             PLUGIN_FILE="marty_plugin_typescript.dll"
+            OUTPUT_FILE="marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.dll"
           else
             PLUGIN_FILE="libmarty_plugin_typescript.${{ matrix.ext }}"
+            OUTPUT_FILE="marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.${{ matrix.ext }}"
           fi
           
-          # Create release package
-          mkdir -p marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}
-          cp $PLUGIN_FILE marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}/
-          
-          # Create archive
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.zip marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}
-          else
-            tar czf marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.tar.gz marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}
-          fi
+          # Copy and rename the dynamic library for release
+          cp $PLUGIN_FILE $OUTPUT_FILE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: marty-plugin-typescript-${{ matrix.target }}
-          path: |
-            plugins/typescript/target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.tar.gz
-            plugins/typescript/target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.zip
+          path: plugins/typescript/target/${{ matrix.target }}/release/marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.*
 
   create-releases:
     needs: [detect-changes, publish-cargo-plugin, publish-pnpm-plugin, publish-typescript-plugin]
@@ -297,15 +273,25 @@ jobs:
             Dynamic library plugin for Cargo workspace detection in Marty.
             
             ### Installation
+            
+            #### Option 1: Script Installation
             ```bash
             curl -sSL https://raw.githubusercontent.com/codyspate/marty/main/scripts/install-plugin.sh | bash -s -- cargo
             ```
             
-            ### Manual Installation
-            1. Download the appropriate file for your platform
-            2. Extract to your `.marty/plugins/` directory
+            #### Option 2: Direct URL in workspace.yml
+            ```yaml
+            plugins:
+              - name: cargo
+                url: https://github.com/codyspate/marty/releases/download/marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}/marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}-<target>.<ext>
+            ```
+            Replace `<target>` with your platform (e.g., `x86_64-unknown-linux-gnu`) and `<ext>` with the appropriate extension (`so`, `dylib`, or `dll`).
+            
+            #### Option 3: Manual Installation
+            1. Download the appropriate `.so`, `.dylib`, or `.dll` file for your platform
+            2. Place it in your `.marty/plugins/` directory
             3. The plugin will be automatically discovered by Marty
-          files: ./artifacts/marty-plugin-cargo-*/*
+          files: ./artifacts/marty-plugin-cargo-*/marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}-*
           fail_on_unmatched_files: false
           draft: false
           prerelease: false
@@ -324,15 +310,25 @@ jobs:
             Dynamic library plugin for PNPM workspace detection in Marty.
             
             ### Installation
+            
+            #### Option 1: Script Installation
             ```bash
             curl -sSL https://raw.githubusercontent.com/codyspate/marty/main/scripts/install-plugin.sh | bash -s -- pnpm
             ```
             
-            ### Manual Installation
-            1. Download the appropriate file for your platform
-            2. Extract to your `.marty/plugins/` directory
+            #### Option 2: Direct URL in workspace.yml
+            ```yaml
+            plugins:
+              - name: pnpm
+                url: https://github.com/codyspate/marty/releases/download/marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}/marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}-<target>.<ext>
+            ```
+            Replace `<target>` with your platform (e.g., `x86_64-unknown-linux-gnu`) and `<ext>` with the appropriate extension (`so`, `dylib`, or `dll`).
+            
+            #### Option 3: Manual Installation
+            1. Download the appropriate `.so`, `.dylib`, or `.dll` file for your platform
+            2. Place it in your `.marty/plugins/` directory
             3. The plugin will be automatically discovered by Marty
-          files: ./artifacts/marty-plugin-pnpm-*/*
+          files: ./artifacts/marty-plugin-pnpm-*/marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}-*
           fail_on_unmatched_files: false
           draft: false
           prerelease: false
@@ -351,15 +347,25 @@ jobs:
             Dynamic library plugin for TypeScript project detection in Marty.
             
             ### Installation
+            
+            #### Option 1: Script Installation
             ```bash
             curl -sSL https://raw.githubusercontent.com/codyspate/marty/main/scripts/install-plugin.sh | bash -s -- typescript
             ```
             
-            ### Manual Installation
-            1. Download the appropriate file for your platform
-            2. Extract to your `.marty/plugins/` directory
+            #### Option 2: Direct URL in workspace.yml
+            ```yaml
+            plugins:
+              - name: typescript
+                url: https://github.com/codyspate/marty/releases/download/marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}/marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}-<target>.<ext>
+            ```
+            Replace `<target>` with your platform (e.g., `x86_64-unknown-linux-gnu`) and `<ext>` with the appropriate extension (`so`, `dylib`, or `dll`).
+            
+            #### Option 3: Manual Installation
+            1. Download the appropriate `.so`, `.dylib`, or `.dll` file for your platform
+            2. Place it in your `.marty/plugins/` directory
             3. The plugin will be automatically discovered by Marty
-          files: ./artifacts/marty-plugin-typescript-*/*
+          files: ./artifacts/marty-plugin-typescript-*/marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}-*
           fail_on_unmatched_files: false
           draft: false
           prerelease: false
