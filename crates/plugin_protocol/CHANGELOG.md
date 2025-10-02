@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v0.3.0 (2025-10-02)
 
+<csr-id-cbaa6f2f4d502acbc50ae505955df6587336f27a/>
+
 ### Chore
 
  - <csr-id-cbaa6f2f4d502acbc50ae505955df6587336f27a/> add package metadata for publishing
    - Add description and license fields to all crates
    - Add MIT and Apache 2.0 license files
    - Fix dependency version specifications for publishing
+
+### Chore
+
+ - <csr-id-0cf367c1a0acf147309b6c6172cba4da0de6e96a/> add CHANGELOG.md to document project updates and versioning
 
 ### New Features
 
@@ -29,8 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 7 commits contributed to the release.
- - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 8 commits contributed to the release.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -40,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Add CHANGELOG.md to document project updates and versioning ([`0cf367c`](https://github.com/codyspate/marty/commit/0cf367c1a0acf147309b6c6172cba4da0de6e96a))
     - Update marty_plugin_protocol dependency to remove version specification ([`23237e6`](https://github.com/codyspate/marty/commit/23237e6a2addb09a52177d8a5d021bf6b1d0172b))
     - Update package versions in Cargo.toml files to 0.3.0 and 0.1.0 ([`3782308`](https://github.com/codyspate/marty/commit/3782308b26c3c16ef7102ceaf61a6c8c8873c4a1))
     - Migrated plugin strategy top use dynamic libraries over wasm ([`21ecbc4`](https://github.com/codyspate/marty/commit/21ecbc4f07daf5e1c9a00cb43c41c6cf005e67e2))
