@@ -3,6 +3,7 @@ name = "marty_core"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+repository = "https://github.com/codyspate/marty"
 
 [dependencies]
 schemars = "1.0"

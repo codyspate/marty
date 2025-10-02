@@ -48,3 +48,13 @@ wasmtime-wasi = "15"
 wasi-cap-std-sync = "15"
 wasi-common = "15"
 serde = { version = "1", features = ["derive"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+# cargo-release configuration for unified versioning
+[workspace.metadata.release]
+shared-version = true
+tag-name = "v{{version}}"

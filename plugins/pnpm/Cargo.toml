@@ -3,6 +3,7 @@ name = "marty-plugin-pnpm"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+repository = "https://github.com/codyspate/marty"
 publish = false
 
 [dependencies]

@@ -3,6 +3,7 @@ name = "marty_cli"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+repository = "https://github.com/codyspate/marty"
 
 [dependencies]
 marty_core = { path = "../core" }

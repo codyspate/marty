@@ -129,6 +129,56 @@ marty/
 └── .marty/           # Workspace configuration
 ```
 
+## Releases
+
+Marty uses [cargo-dist](https://github.com/axodotdev/cargo-dist) for automated binary releases and [cargo-release](https://github.com/crate-ci/cargo-release) for version management.
+
+### Release Process
+
+The recommended workflow uses pull requests:
+
+```bash
+# 1. Create a release branch
+git checkout -b release-v0.2.0
+
+# 2. Update changelog and other release preparation
+# Edit CHANGELOG.md, update version references, etc.
+git commit -am "prep release v0.2.0"
+
+# 3. Use cargo-release to update versions and push
+cargo release --no-publish --no-tag --allow-branch=release-v0.2.0 0.2.0
+
+# 4. Create PR, review, and merge to main
+
+# 5. Complete the release from main branch
+git checkout main
+git pull
+cargo release  # This creates the tag and triggers CI
+```
+
+### What Happens During Release
+
+1. **cargo-release** handles version bumping across the workspace
+2. **GitHub Actions** automatically builds binaries for multiple platforms
+3. **GitHub Release** is created with downloadable assets
+4. **Installers** are generated (shell script, PowerShell script)
+5. **Checksums** are provided for all artifacts
+
+### Installation Methods
+
+Users can install Marty in several ways:
+
+```bash
+# Via shell installer (macOS/Linux)
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/codyspate/marty/releases/latest/download/marty_cli-installer.sh | sh
+
+# Via PowerShell installer (Windows)
+powershell -c "irm https://github.com/codyspate/marty/releases/latest/download/marty_cli-installer.ps1 | iex"
+
+# Manual download from GitHub Releases
+# Download the appropriate archive for your platform
+```
+
 ## Contributing
 
 We welcome contributions! Please ensure:

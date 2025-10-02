@@ -3,6 +3,7 @@ name = "marty_plugin_protocol"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+repository = "https://github.com/codyspate/marty"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
