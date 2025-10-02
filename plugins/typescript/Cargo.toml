@@ -1,6 +1,6 @@
 [package]
 name = "marty-plugin-typescript"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Cody Spate <cody@spate.dev>"]
 
@@ -9,11 +9,17 @@ authors = ["Cody Spate <cody@spate.dev>"]
 
 [lib]
 crate-type = ["cdylib"]
+name = "marty_plugin_typescript"
+
+[[bin]]
+name = "update_references"
+path = "src/bin/update_references.rs"
 
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 marty_plugin_protocol = { path = "../../crates/plugin_protocol" }
+pathdiff = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

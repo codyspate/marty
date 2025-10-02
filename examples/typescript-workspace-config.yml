@@ -1,0 +1,28 @@
+# Example workspace configuration for TypeScript auto project references
+name: "TypeScript Monorepo"
+description: "Example workspace with TypeScript auto project references"
+
+includes: 
+  - "packages/**"
+  - "apps/**"
+
+plugins: 
+  - url: https://github.com/codyspate/marty/releases/download/marty-plugin-typescript-v0.2.1/marty-plugin-typescript-v0.2.1-x86_64-unknown-linux-gnu.so
+    enabled: true
+    options:
+      # Enable automatic project references updates
+      auto_project_references: true
+      
+      # Style for generating reference paths
+      # "relative" - points to directory (e.g., "../shared")
+      # "tsconfig" - points to tsconfig.json (e.g., "../shared/tsconfig.json")
+      reference_path_style: "relative"
+      
+      # Additional patterns to include/exclude
+      includes: 
+        - "**/tsconfig.json"
+        - "**/tsconfig.*.json"
+      excludes: 
+        - "**/node_modules/**"
+        - "**/dist/**"
+        - "**/.next/**"
