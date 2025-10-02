@@ -6,7 +6,7 @@ authors.workspace = true
 repository = "https://github.com/codyspate/marty"
 description = "Core business logic and workspace management for Marty monorepo tool"
 license = "MIT OR Apache-2.0"
-publish = false
+
 
 [dependencies]
 schemars = "1.0"

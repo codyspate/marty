@@ -6,7 +6,7 @@ authors.workspace = true
 repository = "https://github.com/codyspate/marty"
 description = "PNPM workspace provider plugin for Marty"
 license = "MIT OR Apache-2.0"
-publish = false
+
 
 [lib]
 crate-type = ["cdylib"]
