@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/*", "plugins/*"]
+members = ["crates/*"]
+exclude = ["plugins/*"]
 resolver = "2"
 
 [workspace.package]
