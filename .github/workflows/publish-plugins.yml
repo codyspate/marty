@@ -91,12 +91,13 @@ jobs:
 
       - name: Build plugin
         run: |
-          cargo build --release --target ${{ matrix.target }} --manifest-path plugins/cargo/Cargo.toml
+          cd plugins/cargo
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Package plugin
         shell: bash
         run: |
-          cd target/${{ matrix.target }}/release
+          cd plugins/cargo/target/${{ matrix.target }}/release
           if [ "${{ matrix.ext }}" = "dll" ]; then
             PLUGIN_FILE="marty_plugin_cargo.dll"
           else
@@ -119,8 +120,8 @@ jobs:
         with:
           name: marty-plugin-cargo-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.tar.gz
-            target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.zip
+            plugins/cargo/target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.tar.gz
+            plugins/cargo/target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.zip
 
   publish-pnpm-plugin:
     needs: detect-changes
@@ -162,12 +163,13 @@ jobs:
 
       - name: Build plugin
         run: |
-          cargo build --release --target ${{ matrix.target }} --manifest-path plugins/pnpm/Cargo.toml
+          cd plugins/pnpm
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Package plugin
         shell: bash
         run: |
-          cd target/${{ matrix.target }}/release
+          cd plugins/pnpm/target/${{ matrix.target }}/release
           if [ "${{ matrix.ext }}" = "dll" ]; then
             PLUGIN_FILE="marty_plugin_pnpm.dll"
           else
@@ -190,8 +192,8 @@ jobs:
         with:
           name: marty-plugin-pnpm-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.tar.gz
-            target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.zip
+            plugins/pnpm/target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.tar.gz
+            plugins/pnpm/target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.zip
 
   publish-typescript-plugin:
     needs: detect-changes
@@ -233,12 +235,13 @@ jobs:
 
       - name: Build plugin
         run: |
-          cargo build --release --target ${{ matrix.target }} --manifest-path plugins/typescript/Cargo.toml
+          cd plugins/typescript
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Package plugin
         shell: bash
         run: |
-          cd target/${{ matrix.target }}/release
+          cd plugins/typescript/target/${{ matrix.target }}/release
           if [ "${{ matrix.ext }}" = "dll" ]; then
             PLUGIN_FILE="marty_plugin_typescript.dll"
           else
@@ -261,8 +264,8 @@ jobs:
         with:
           name: marty-plugin-typescript-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.tar.gz
-            target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.zip
+            plugins/typescript/target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.tar.gz
+            plugins/typescript/target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.zip
 
   create-releases:
     needs: [detect-changes, publish-cargo-plugin, publish-pnpm-plugin, publish-typescript-plugin]

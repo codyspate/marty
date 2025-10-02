@@ -46,7 +46,10 @@ clap = { version = "4", features = ["derive"] }
 serde_json = "1"
 libloading = "0.8"
 serde = { version = "1", features = ["derive"] }
-reqwest = { version = "0.12", features = ["stream"] }
+reqwest = { version = "0.12", features = [
+    "stream",
+    "rustls-tls-webpki-roots",
+], default-features = false }
 sha2 = "0.10"
 
 # The profile that 'dist' will build with

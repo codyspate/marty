@@ -18,6 +18,8 @@ targets = [
     "x86_64-unknown-linux-musl",
     "x86_64-pc-windows-msvc",
 ]
+# System dependencies to install for builds  
+system-dependencies = { apt = ["musl-tools"] }
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 # Whether to install an updater program

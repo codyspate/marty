@@ -15,5 +15,9 @@ anyhow.workspace = true
 tokio = { version = "1.0", features = ["full"] }
 colored = "2.0"
 
+[[bin]]
+name = "marty"
+path = "src/main.rs"
+
 [package.metadata.dist]
 dist = true
