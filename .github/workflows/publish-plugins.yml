@@ -8,6 +8,11 @@ on:
       - 'plugins/*/src/**'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: read
+  actions: read
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -281,10 +286,11 @@ jobs:
 
       - name: Create Cargo Plugin Release
         if: needs.detect-changes.outputs.cargo-changed == 'true'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}
           name: Marty Cargo Plugin v${{ needs.detect-changes.outputs.cargo-version }}
+          target_commitish: ${{ github.sha }}
           body: |
             ## Marty Cargo Plugin v${{ needs.detect-changes.outputs.cargo-version }}
             
@@ -300,15 +306,18 @@ jobs:
             2. Extract to your `.marty/plugins/` directory
             3. The plugin will be automatically discovered by Marty
           files: ./artifacts/marty-plugin-cargo-*/*
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create PNPM Plugin Release
         if: needs.detect-changes.outputs.pnpm-changed == 'true'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}
           name: Marty PNPM Plugin v${{ needs.detect-changes.outputs.pnpm-version }}
+          target_commitish: ${{ github.sha }}
           body: |
             ## Marty PNPM Plugin v${{ needs.detect-changes.outputs.pnpm-version }}
             
@@ -324,15 +333,18 @@ jobs:
             2. Extract to your `.marty/plugins/` directory
             3. The plugin will be automatically discovered by Marty
           files: ./artifacts/marty-plugin-pnpm-*/*
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create TypeScript Plugin Release
         if: needs.detect-changes.outputs.typescript-changed == 'true'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}
           name: Marty TypeScript Plugin v${{ needs.detect-changes.outputs.typescript-version }}
+          target_commitish: ${{ github.sha }}
           body: |
             ## Marty TypeScript Plugin v${{ needs.detect-changes.outputs.typescript-version }}
             
@@ -348,5 +360,7 @@ jobs:
             2. Extract to your `.marty/plugins/` directory
             3. The plugin will be automatically discovered by Marty
           files: ./artifacts/marty-plugin-typescript-*/*
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
