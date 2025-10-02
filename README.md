@@ -69,6 +69,11 @@ marty run build --target my-project
 
 # Execute tasks with dependencies
 marty plan --target my-project --task test
+
+# Plugin management
+marty plugin list           # List cached plugins
+marty plugin clear          # Clear plugin cache
+marty plugin update         # Update all plugins from URLs
 ```
 
 ## Configuration
@@ -80,9 +85,24 @@ Marty uses YAML configuration files for workspace and task definitions:
 ```yaml
 name: "My Workspace"
 plugins:
+  # Built-in plugin
   - name: "cargo"
-    config:
+    path: "builtin"
+    enabled: true
+    options:
       includes: ["crates/**", "plugins/*"]
+  
+  # URL-based plugin (downloaded and cached)
+  - name: "typescript"
+    url: "https://github.com/owner/repo/releases/latest/download/plugin.wasm"
+    enabled: true
+    options:
+      includes: ["**/*.ts", "**/tsconfig.json"]
+      
+  # Local file plugin
+  - name: "custom"
+    path: "/path/to/custom-plugin.wasm"
+    enabled: false
 ```
 
 ### Task Definitions (`.marty/tasks/build.yml`)
@@ -102,9 +122,41 @@ tasks:
     dependencies: ["build"]
 ```
 
-## Plugin Development
+## Plugin System
 
 Marty's plugin system uses WASM for safe, portable extensions. Plugins implement workspace providers for different project types and languages.
+
+### Plugin Configuration
+
+Plugins can be configured in three ways:
+
+1. **Built-in plugins** - Use `path: "builtin"` for plugins bundled with Marty
+2. **URL-based plugins** - Download plugins from URLs and cache them locally
+3. **Local file plugins** - Point to local `.wasm` files
+
+### Plugin Options
+
+Each plugin can have custom configuration through the `options` field:
+
+```yaml
+plugins:
+  - name: "cargo"
+    path: "builtin"
+    options:
+      includes: ["crates/**"]
+      excludes: ["target/**"]
+      
+  - name: "typescript"
+    url: "https://example.com/typescript-plugin.wasm"
+    options:
+      compilerOptions:
+        strict: true
+        target: "ES2020"
+```
+
+### Plugin Caching
+
+URL-based plugins are automatically downloaded and cached in `.marty/cache/plugins/`. The cache uses URL hashing to avoid re-downloading unchanged plugins.
 
 ### Core Plugin Interface
 

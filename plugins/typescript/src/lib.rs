@@ -1,7 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use marty_plugin_protocol::InferredProjectMessage;
+use marty_plugin_protocol::{
+    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, Workspace,
+    WorkspaceProvider,
+};
 use serde::Deserialize;
+use serde_json::{json, Value as JsonValue};
 
 #[derive(Debug, Deserialize, Default)]
 struct TsConfig {
@@ -14,6 +18,96 @@ struct TsReference {
     #[serde(default)]
     path: Option<String>,
 }
+
+/// Main TypeScript plugin struct
+pub struct TypeScriptPlugin;
+
+/// Workspace provider for TypeScript projects  
+pub struct TypeScriptWorkspaceProvider;
+
+impl Default for TypeScriptPlugin {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl TypeScriptPlugin {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl WorkspaceProvider for TypeScriptWorkspaceProvider {
+    fn include_path_globs(&self) -> Vec<String> {
+        vec!["**/tsconfig.json".to_string()]
+    }
+
+    fn exclude_path_globs(&self) -> Vec<String> {
+        vec![
+            "**/node_modules/**".to_string(),
+            "**/.git/**".to_string(),
+            "**/dist/**".to_string(),
+        ]
+    }
+
+    fn on_file_found(&self, _workspace: &Workspace, path: &Path) -> Option<InferredProject> {
+        if path.file_name()?.to_str()? != "tsconfig.json" {
+            return None;
+        }
+
+        let contents = std::fs::read_to_string(path).ok()?;
+        let message = process_tsconfig(path, &contents)?;
+
+        Some(InferredProject {
+            name: message.name,
+            project_dir: std::path::PathBuf::from(message.project_dir),
+            discovered_by: message.discovered_by,
+            workspace_dependencies: message.workspace_dependencies,
+        })
+    }
+}
+
+impl MartyPlugin for TypeScriptPlugin {
+    fn name(&self) -> &str {
+        "TypeScript Plugin"
+    }
+
+    fn key(&self) -> &str {
+        "typescript"
+    }
+
+    fn workspace_provider(&self) -> &dyn WorkspaceProvider {
+        &TypeScriptWorkspaceProvider
+    }
+
+    fn configuration_options(&self) -> Option<JsonValue> {
+        Some(json!({
+            "type": "object",
+            "properties": {
+                "includes": {
+                    "type": "array",
+                    "description": "Additional glob patterns to include in scanning",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                },
+                "excludes": {
+                    "type": "array",
+                    "description": "Additional glob patterns to exclude from scanning",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                }
+            },
+            "additionalProperties": false
+        }))
+    }
+}
+
+// Export the plugin using the dynamic library interface
+export_plugin!(TypeScriptPlugin);
 
 pub fn ignore_path_globs() -> Vec<String> {
     vec![

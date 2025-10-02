@@ -2,23 +2,12 @@ use globset::{Glob, GlobSetBuilder};
 use petgraph::algo::kosaraju_scc;
 use petgraph::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
-pub struct Project {
-    pub name: String,
-    pub project_dir: PathBuf,
-    pub file_path: Option<PathBuf>,
-}
+// Re-export types from plugin_protocol for convenience
+pub use marty_plugin_protocol::{InferredProject, Project, WorkspaceProvider};
 
-#[derive(Debug, Clone)]
-pub struct InferredProject {
-    pub name: String,
-    pub project_dir: PathBuf,
-    pub discovered_by: String,
-    pub workspace_dependencies: Vec<String>,
-}
-
+/// Extended workspace structure with dependency graph information
 #[derive(Debug)]
 pub struct Workspace {
     pub root: PathBuf,
@@ -28,12 +17,14 @@ pub struct Workspace {
     pub dependency_cycles: Vec<Vec<String>>,
 }
 
-pub trait WorkspaceProvider {
-    fn include_path_globs(&self) -> Vec<String>;
-    fn exclude_path_globs(&self) -> Vec<String> {
-        Vec::new() // Default implementation returns empty excludes
+impl From<&Workspace> for marty_plugin_protocol::Workspace {
+    fn from(workspace: &Workspace) -> Self {
+        Self {
+            root: workspace.root.clone(),
+            projects: workspace.projects.clone(),
+            inferred_projects: workspace.inferred_projects.clone(),
+        }
     }
-    fn on_file_found(&self, workspace: &Workspace, path: &Path) -> Option<InferredProject>;
 }
 
 const DEFAULT_INCLUDE_GLOBS: &[&str] = &["**"];
@@ -100,7 +91,8 @@ pub fn traverse_workspace(caller: &dyn WorkspaceProvider, workspace: &mut Worksp
                 }
 
                 if path.is_file() {
-                    if let Some(project) = caller.on_file_found(workspace, &path) {
+                    let plugin_workspace = marty_plugin_protocol::Workspace::from(&*workspace);
+                    if let Some(project) = caller.on_file_found(&plugin_workspace, &path) {
                         let manifest_path = project.project_dir.join("marty.yml");
 
                         if manifest_path.exists() {
@@ -306,7 +298,11 @@ mod tests {
             // Exclude the ignored directory for testing
             vec!["**/ignored/**".to_string()]
         }
-        fn on_file_found(&self, _workspace: &Workspace, path: &Path) -> Option<InferredProject> {
+        fn on_file_found(
+            &self,
+            _workspace: &marty_plugin_protocol::Workspace,
+            path: &std::path::Path,
+        ) -> Option<InferredProject> {
             // Example logic: treat directories containing "project_config.txt" as projects
             if path.file_name().unwrap_or_default() == "project_config.txt" {
                 if let Some(parent) = path.parent() {

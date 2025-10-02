@@ -6,6 +6,7 @@ authors.workspace = true
 repository = "https://github.com/codyspate/marty"
 description = "Command-line interface for Marty monorepo management tool"
 license = "MIT OR Apache-2.0"
+publish = false
 
 [dependencies]
 marty_core = { path = "../core" }

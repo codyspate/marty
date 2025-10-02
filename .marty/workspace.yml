@@ -2,7 +2,9 @@ name: "Marty Workspace"
 description: "Example Marty workspace configuration"
 includes: 
   - "crates/**"
-plugins:
-  - name: "cargo"
-    path: "builtin"
-    enabled: true
+plugins: []
+  # Example of URL-based plugin:
+  # - url: "https://github.com/codyspate/marty/releases/latest/download/marty-plugin-typescript.wasm"
+  #   enabled: true
+  #   options:
+  #     includes: ["**/*.ts", "**/tsconfig.json"]

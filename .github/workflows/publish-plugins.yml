@@ -1,0 +1,349 @@
+name: Publish Plugins
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/*/Cargo.toml'
+      - 'plugins/*/src/**'
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      cargo-changed: ${{ steps.changes.outputs.cargo }}
+      pnpm-changed: ${{ steps.changes.outputs.pnpm }}
+      typescript-changed: ${{ steps.changes.outputs.typescript }}
+      cargo-version: ${{ steps.versions.outputs.cargo-version }}
+      pnpm-version: ${{ steps.versions.outputs.pnpm-version }}
+      typescript-version: ${{ steps.versions.outputs.typescript-version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed plugins
+        id: changes
+        run: |
+          if git diff HEAD~1 --name-only | grep -q "plugins/cargo/"; then
+            echo "cargo=true" >> $GITHUB_OUTPUT
+          else
+            echo "cargo=false" >> $GITHUB_OUTPUT
+          fi
+          
+          if git diff HEAD~1 --name-only | grep -q "plugins/pnpm/"; then
+            echo "pnpm=true" >> $GITHUB_OUTPUT
+          else
+            echo "pnpm=false" >> $GITHUB_OUTPUT
+          fi
+          
+          if git diff HEAD~1 --name-only | grep -q "plugins/typescript/"; then
+            echo "typescript=true" >> $GITHUB_OUTPUT
+          else
+            echo "typescript=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract versions
+        id: versions
+        run: |
+          echo "cargo-version=$(cargo metadata --format-version 1 --manifest-path plugins/cargo/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-cargo") | .version')" >> $GITHUB_OUTPUT
+          echo "pnpm-version=$(cargo metadata --format-version 1 --manifest-path plugins/pnpm/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-pnpm") | .version')" >> $GITHUB_OUTPUT
+          echo "typescript-version=$(cargo metadata --format-version 1 --manifest-path plugins/typescript/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-typescript") | .version')" >> $GITHUB_OUTPUT
+
+  publish-cargo-plugin:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cargo-changed == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: so
+          - os: ubuntu-latest  
+            target: aarch64-unknown-linux-gnu
+            ext: so
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: dylib
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: dylib
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: dll
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build plugin
+        run: |
+          cargo build --release --target ${{ matrix.target }} --manifest-path plugins/cargo/Cargo.toml
+
+      - name: Package plugin
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          if [ "${{ matrix.ext }}" = "dll" ]; then
+            PLUGIN_FILE="marty_plugin_cargo.dll"
+          else
+            PLUGIN_FILE="libmarty_plugin_cargo.${{ matrix.ext }}"
+          fi
+          
+          # Create release package
+          mkdir -p marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}
+          cp $PLUGIN_FILE marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}/
+          
+          # Create archive
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.zip marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}
+          else
+            tar czf marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.tar.gz marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: marty-plugin-cargo-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.tar.gz
+            target/${{ matrix.target }}/release/marty-plugin-cargo-${{ needs.detect-changes.outputs.cargo-version }}-${{ matrix.target }}.zip
+
+  publish-pnpm-plugin:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.pnpm-changed == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: so
+          - os: ubuntu-latest  
+            target: aarch64-unknown-linux-gnu
+            ext: so
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: dylib
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: dylib
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: dll
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build plugin
+        run: |
+          cargo build --release --target ${{ matrix.target }} --manifest-path plugins/pnpm/Cargo.toml
+
+      - name: Package plugin
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          if [ "${{ matrix.ext }}" = "dll" ]; then
+            PLUGIN_FILE="marty_plugin_pnpm.dll"
+          else
+            PLUGIN_FILE="libmarty_plugin_pnpm.${{ matrix.ext }}"
+          fi
+          
+          # Create release package
+          mkdir -p marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}
+          cp $PLUGIN_FILE marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}/
+          
+          # Create archive
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.zip marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}
+          else
+            tar czf marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.tar.gz marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: marty-plugin-pnpm-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.tar.gz
+            target/${{ matrix.target }}/release/marty-plugin-pnpm-${{ needs.detect-changes.outputs.pnpm-version }}-${{ matrix.target }}.zip
+
+  publish-typescript-plugin:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.typescript-changed == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: so
+          - os: ubuntu-latest  
+            target: aarch64-unknown-linux-gnu
+            ext: so
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: dylib
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: dylib
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: dll
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build plugin
+        run: |
+          cargo build --release --target ${{ matrix.target }} --manifest-path plugins/typescript/Cargo.toml
+
+      - name: Package plugin
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          if [ "${{ matrix.ext }}" = "dll" ]; then
+            PLUGIN_FILE="marty_plugin_typescript.dll"
+          else
+            PLUGIN_FILE="libmarty_plugin_typescript.${{ matrix.ext }}"
+          fi
+          
+          # Create release package
+          mkdir -p marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}
+          cp $PLUGIN_FILE marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}/
+          
+          # Create archive
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.zip marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}
+          else
+            tar czf marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.tar.gz marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: marty-plugin-typescript-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.tar.gz
+            target/${{ matrix.target }}/release/marty-plugin-typescript-${{ needs.detect-changes.outputs.typescript-version }}-${{ matrix.target }}.zip
+
+  create-releases:
+    needs: [detect-changes, publish-cargo-plugin, publish-pnpm-plugin, publish-typescript-plugin]
+    if: always() && (needs.publish-cargo-plugin.result == 'success' || needs.publish-pnpm-plugin.result == 'success' || needs.publish-typescript-plugin.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create Cargo Plugin Release
+        if: needs.detect-changes.outputs.cargo-changed == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: marty-plugin-cargo-v${{ needs.detect-changes.outputs.cargo-version }}
+          name: Marty Cargo Plugin v${{ needs.detect-changes.outputs.cargo-version }}
+          body: |
+            ## Marty Cargo Plugin v${{ needs.detect-changes.outputs.cargo-version }}
+            
+            Dynamic library plugin for Cargo workspace detection in Marty.
+            
+            ### Installation
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/codyspate/marty/main/scripts/install-plugin.sh | bash -s -- cargo
+            ```
+            
+            ### Manual Installation
+            1. Download the appropriate file for your platform
+            2. Extract to your `.marty/plugins/` directory
+            3. The plugin will be automatically discovered by Marty
+          files: ./artifacts/marty-plugin-cargo-*/*
+          draft: false
+          prerelease: false
+
+      - name: Create PNPM Plugin Release
+        if: needs.detect-changes.outputs.pnpm-changed == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: marty-plugin-pnpm-v${{ needs.detect-changes.outputs.pnpm-version }}
+          name: Marty PNPM Plugin v${{ needs.detect-changes.outputs.pnpm-version }}
+          body: |
+            ## Marty PNPM Plugin v${{ needs.detect-changes.outputs.pnpm-version }}
+            
+            Dynamic library plugin for PNPM workspace detection in Marty.
+            
+            ### Installation
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/codyspate/marty/main/scripts/install-plugin.sh | bash -s -- pnpm
+            ```
+            
+            ### Manual Installation
+            1. Download the appropriate file for your platform
+            2. Extract to your `.marty/plugins/` directory
+            3. The plugin will be automatically discovered by Marty
+          files: ./artifacts/marty-plugin-pnpm-*/*
+          draft: false
+          prerelease: false
+
+      - name: Create TypeScript Plugin Release
+        if: needs.detect-changes.outputs.typescript-changed == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: marty-plugin-typescript-v${{ needs.detect-changes.outputs.typescript-version }}
+          name: Marty TypeScript Plugin v${{ needs.detect-changes.outputs.typescript-version }}
+          body: |
+            ## Marty TypeScript Plugin v${{ needs.detect-changes.outputs.typescript-version }}
+            
+            Dynamic library plugin for TypeScript project detection in Marty.
+            
+            ### Installation
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/codyspate/marty/main/scripts/install-plugin.sh | bash -s -- typescript
+            ```
+            
+            ### Manual Installation
+            1. Download the appropriate file for your platform
+            2. Extract to your `.marty/plugins/` directory
+            3. The plugin will be automatically discovered by Marty
+          files: ./artifacts/marty-plugin-typescript-*/*
+          draft: false
+          prerelease: false

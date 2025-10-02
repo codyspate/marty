@@ -40,6 +40,21 @@ enum Commands {
     },
     /// Show the project dependency graph
     Graph,
+    /// Manage plugins
+    Plugin {
+        #[command(subcommand)]
+        plugin_command: PluginCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum PluginCommands {
+    /// List cached plugins
+    List,
+    /// Clear plugin cache
+    Clear,
+    /// Update all plugins from their URLs
+    Update,
 }
 
 #[tokio::main]
@@ -59,5 +74,8 @@ async fn main() -> Result<()> {
         Commands::Plan { target } => commands::plan::execute(&manager, &target).await,
         Commands::Run { target } => commands::run::execute(&manager, &target).await,
         Commands::Graph => commands::graph::execute(&manager),
+        Commands::Plugin { plugin_command } => {
+            commands::plugin::execute(&manager, plugin_command).await
+        }
     }
 }

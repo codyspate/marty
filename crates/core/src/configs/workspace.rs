@@ -18,9 +18,10 @@ pub struct WorkspaceConfig {
 #[derive(Deserialize, Serialize, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PluginConfig {
-    pub name: String,
-    pub path: String,
+    pub url: Option<String>,
+    pub path: Option<String>,
     pub enabled: Option<bool>,
+    pub options: Option<serde_json::Value>,
 }
 
 pub fn parse_workspace_config(yaml_str: &str) -> MartyResult<WorkspaceConfig> {

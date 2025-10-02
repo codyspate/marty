@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository = "https://github.com/codyspate/marty"
+homepage = "https://github.com/codyspate/marty"
+readme = "README.md"
 description = "Protocol definitions for Marty workspace provider plugins"
 license = "MIT OR Apache-2.0"
 

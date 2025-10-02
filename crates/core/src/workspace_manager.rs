@@ -1,32 +1,32 @@
 //! High-level workspace management interface
-//! 
+//!
 //! This module provides the [`WorkspaceManager`] which serves as the primary interface
 //! for all workspace operations. It encapsulates workspace initialization, project
 //! discovery, task execution, and configuration management.
-//! 
+//!
 //! The WorkspaceManager abstracts away the complexity of:
 //! - Loading and merging configuration files
 //! - Plugin discovery and WASM runtime management  
 //! - Workspace traversal and project detection
 //! - Task execution planning and dependency resolution
-//! 
+//!
 //! ## Example
-//! 
+//!
 //! ```rust,no_run
 //! use marty_core::workspace_manager::{WorkspaceManager, WorkspaceManagerConfig};
 //! use std::path::PathBuf;
-//! 
+//!
 //! # async fn example() -> marty_core::types::MartyResult<()> {
 //! let manager = WorkspaceManager::new(WorkspaceManagerConfig {
 //!     workspace_root: PathBuf::from("."),
 //! }).await?;
-//! 
+//!
 //! // List all projects
 //! let projects = manager.list_projects(false)?;
-//! 
+//!
 //! // Get execution plan for a task
 //! let plan = manager.get_execution_plan("build")?;
-//! 
+//!
 //! // Run a task
 //! manager.run_task("test").await?;
 //! # Ok(())
@@ -41,14 +41,14 @@ use crate::configs::{
     tasks::{parse_tasks_config, TaskConfig, TasksFileConfig},
     workspace::{parse_workspace_config, WorkspaceConfig},
 };
-use crate::plugin_runtime::WasmWorkspaceProvider;
-use crate::results::{DependencyGraphResult, ProjectInfo, InferredProjectInfo, ProjectListResult};
+use crate::plugin_cache::PluginCache;
+use crate::plugin_runtime_dylib::DylibWorkspaceProvider;
+use crate::results::{DependencyGraphResult, InferredProjectInfo, ProjectInfo, ProjectListResult};
 use crate::task_execution::{resolve_task_execution_plan, TaskExecutionPlan};
 use crate::tasks::run_task_on_targets;
 use crate::types::{MartyError, MartyResult};
-use crate::workspace::{
-    build_dependency_graph, traverse_workspace, InferredProject, Workspace, WorkspaceProvider,
-};
+use crate::workspace::{build_dependency_graph, traverse_workspace, Workspace};
+use marty_plugin_protocol::{InferredProject, MartyPlugin, WorkspaceProvider};
 
 /// High-level workspace manager that encapsulates all workspace operations
 pub struct WorkspaceManager {
@@ -62,20 +62,19 @@ pub struct WorkspaceManagerConfig {
     pub workspace_root: PathBuf,
 }
 
-
-
 impl WorkspaceManager {
     /// Initialize a new workspace manager from the given workspace root
     pub async fn new(config: WorkspaceManagerConfig) -> MartyResult<Self> {
         // Load workspace configuration
         let workspace_config = Self::load_workspace_config(&config.workspace_root)?;
-        
+
         // Load and merge task configurations
         let task_configs = Self::load_task_configs(&config.workspace_root)?;
-        
+
         // Load workspace providers and initialize workspace
-        let workspace = Self::initialize_workspace(config.workspace_root, &workspace_config).await?;
-        
+        let workspace =
+            Self::initialize_workspace(config.workspace_root, &workspace_config).await?;
+
         Ok(Self {
             workspace,
             task_configs,
@@ -94,10 +93,7 @@ impl WorkspaceManager {
                 ProjectInfo {
                     name: p.name.clone(),
                     path: p.project_dir.clone(),
-                    tags: project_config
-                        .ok()
-                        .and_then(|c| c.tags)
-                        .unwrap_or_default(),
+                    tags: project_config.ok().and_then(|c| c.tags).unwrap_or_default(),
                     has_config: p.project_dir.join("marty.yml").exists(),
                 }
             })
@@ -143,7 +139,7 @@ impl WorkspaceManager {
     /// Execute a task on the workspace
     pub async fn run_task(&self, target: &str) -> MartyResult<()> {
         let execution_plan = self.get_execution_plan(target)?;
-        
+
         if execution_plan.compatible_projects.is_empty() {
             return Err(MartyError::Task(format!(
                 "No compatible projects found for task '{}'",
@@ -152,7 +148,7 @@ impl WorkspaceManager {
         }
 
         let task_map = self.build_task_map()?;
-        
+
         run_task_on_targets(
             &execution_plan.task_name,
             &execution_plan.compatible_projects,
@@ -173,7 +169,7 @@ impl WorkspaceManager {
     }
 
     // Private helper methods
-    
+
     fn load_workspace_config(workspace_root: &Path) -> MartyResult<WorkspaceConfig> {
         let workspace_config_path = workspace_root.join(".marty").join("workspace.yml");
         let content = std::fs::read_to_string(&workspace_config_path).map_err(|e| {
@@ -199,16 +195,30 @@ impl WorkspaceManager {
 
         if tasks_dir.exists() {
             for entry in std::fs::read_dir(&tasks_dir).map_err(|e| {
-                MartyError::Task(format!("Failed to read tasks directory {}: {}", tasks_dir.display(), e))
+                MartyError::Task(format!(
+                    "Failed to read tasks directory {}: {}",
+                    tasks_dir.display(),
+                    e
+                ))
             })? {
-                let entry = entry.map_err(|e| MartyError::Task(format!("Failed to read directory entry: {}", e)))?;
+                let entry = entry.map_err(|e| {
+                    MartyError::Task(format!("Failed to read directory entry: {}", e))
+                })?;
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("yml") {
                     let content = std::fs::read_to_string(&path).map_err(|e| {
-                        MartyError::Task(format!("Failed to read task config {}: {}", path.display(), e))
+                        MartyError::Task(format!(
+                            "Failed to read task config {}: {}",
+                            path.display(),
+                            e
+                        ))
                     })?;
                     let config: TasksFileConfig = parse_tasks_config(&content).map_err(|e| {
-                        MartyError::Task(format!("Failed to parse task config {}: {}", path.display(), e))
+                        MartyError::Task(format!(
+                            "Failed to parse task config {}: {}",
+                            path.display(),
+                            e
+                        ))
                     })?;
                     task_configs.push(config);
                 }
@@ -260,7 +270,7 @@ impl WorkspaceManager {
         workspace_config: &WorkspaceConfig,
     ) -> MartyResult<Workspace> {
         // Load workspace providers
-        let providers = Self::load_workspace_providers(&workspace_root, workspace_config)?;
+        let providers = Self::load_workspace_providers(&workspace_root, workspace_config).await?;
 
         // Initialize workspace
         let mut workspace = Workspace {
@@ -273,7 +283,7 @@ impl WorkspaceManager {
 
         // Discover projects using plugins
         for plugin in &providers {
-            traverse_workspace(plugin.as_ref(), &mut workspace);
+            traverse_workspace(plugin.workspace_provider(), &mut workspace);
         }
 
         // Build dependency graph
@@ -283,10 +293,10 @@ impl WorkspaceManager {
         Ok(workspace)
     }
 
-    fn load_workspace_providers(
-        _workspace_root: &Path,
+    async fn load_workspace_providers(
+        workspace_root: &Path,
         workspace_config: &WorkspaceConfig,
-    ) -> MartyResult<Vec<Box<dyn WorkspaceProvider>>> {
+    ) -> MartyResult<Vec<Box<dyn MartyPlugin>>> {
         let workspace_includes = workspace_config
             .includes
             .as_ref()
@@ -298,17 +308,55 @@ impl WorkspaceManager {
             .cloned()
             .unwrap_or_default();
 
-        let providers = WasmWorkspaceProvider::load_all_from_plugins_dir()
-            .map_err(|e| MartyError::Task(format!("Failed to load workspace providers: {}", e)))?
+        // Create plugin cache and resolve plugins
+        let plugin_cache = PluginCache::new(workspace_root);
+
+        let plugin_configs = workspace_config
+            .plugins
+            .as_ref()
+            .cloned()
+            .unwrap_or_default();
+
+        let cached_plugins = plugin_cache.resolve_plugins(&plugin_configs).await?;
+
+        // Load dynamic library providers from cached plugins
+        let mut providers = Vec::new();
+        let mut loaded_plugin_names = std::collections::HashSet::new();
+
+        for cached_plugin in cached_plugins {
+            loaded_plugin_names.insert(cached_plugin.name.clone());
+            match DylibWorkspaceProvider::from_dylib_with_temp_copy(cached_plugin.path.clone()) {
+                Ok(provider) => {
+                    let configurable_provider = ConfigurableWorkspaceProvider::new(
+                        Box::new(provider) as Box<dyn MartyPlugin>,
+                        workspace_includes.clone(),
+                        workspace_excludes.clone(),
+                    );
+                    providers.push(Box::new(configurable_provider) as Box<dyn MartyPlugin>);
+                }
+                Err(e) => {
+                    eprintln!("Failed to load plugin '{}': {}", cached_plugin.name, e);
+                }
+            }
+        }
+
+        // Always scan .marty/plugins directory for additional plugins not explicitly configured
+        let all_plugins = Self::load_plugins_from_directory(workspace_root)
+            .map_err(|e| MartyError::Task(format!("Failed to load workspace providers: {}", e)))?;
+
+        let additional_providers = all_plugins
             .into_iter()
+            .filter(|p| !loaded_plugin_names.contains(p.name())) // Only load plugins not already configured
             .map(|p| {
                 Box::new(ConfigurableWorkspaceProvider::new(
-                    Box::new(p) as Box<dyn WorkspaceProvider>,
+                    Box::new(p) as Box<dyn MartyPlugin>,
                     workspace_includes.clone(),
                     workspace_excludes.clone(),
-                )) as Box<dyn WorkspaceProvider>
+                )) as Box<dyn MartyPlugin>
             })
-            .collect();
+            .collect::<Vec<_>>();
+        providers.extend(additional_providers);
+
         Ok(providers)
     }
 
@@ -389,7 +437,12 @@ impl WorkspaceManager {
 
         let mut all_projects: Vec<String> = Vec::new();
         all_projects.extend(self.workspace.projects.iter().map(|p| p.name.clone()));
-        all_projects.extend(self.workspace.inferred_projects.iter().map(|p| p.name.clone()));
+        all_projects.extend(
+            self.workspace
+                .inferred_projects
+                .iter()
+                .map(|p| p.name.clone()),
+        );
         all_projects.sort();
 
         for (i, project) in all_projects.iter().enumerate() {
@@ -399,18 +452,48 @@ impl WorkspaceManager {
 
         colors
     }
+
+    /// Scan the .marty/plugins directory for dynamic library files and return providers for each
+    fn load_plugins_from_directory(
+        workspace_root: &Path,
+    ) -> anyhow::Result<Vec<DylibWorkspaceProvider>> {
+        let plugins_dir = workspace_root.join(".marty/plugins");
+        if !plugins_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut providers = Vec::new();
+        for entry in std::fs::read_dir(&plugins_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Check for dynamic library extensions
+            let is_dylib = path
+                .extension()
+                .map(|e| e == "so" || e == "dylib" || e == "dll")
+                .unwrap_or(false);
+
+            if is_dylib {
+                match DylibWorkspaceProvider::from_dylib_with_temp_copy(path.clone()) {
+                    Ok(provider) => providers.push(provider),
+                    Err(e) => eprintln!("Failed to load plugin '{}': {}", path.display(), e),
+                }
+            }
+        }
+        Ok(providers)
+    }
 }
 
 /// Wrapper that combines workspace config includes with plugin includes
 struct ConfigurableWorkspaceProvider {
-    inner: Box<dyn WorkspaceProvider>,
+    inner: Box<dyn MartyPlugin>,
     workspace_includes: Vec<String>,
     workspace_excludes: Vec<String>,
 }
 
 impl ConfigurableWorkspaceProvider {
     fn new(
-        inner: Box<dyn WorkspaceProvider>,
+        inner: Box<dyn MartyPlugin>,
         workspace_includes: Vec<String>,
         workspace_excludes: Vec<String>,
     ) -> Self {
@@ -422,6 +505,24 @@ impl ConfigurableWorkspaceProvider {
     }
 }
 
+impl MartyPlugin for ConfigurableWorkspaceProvider {
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn key(&self) -> &str {
+        self.inner.key()
+    }
+
+    fn workspace_provider(&self) -> &dyn WorkspaceProvider {
+        self
+    }
+
+    fn configuration_options(&self) -> Option<serde_json::Value> {
+        self.inner.configuration_options()
+    }
+}
+
 impl WorkspaceProvider for ConfigurableWorkspaceProvider {
     fn include_path_globs(&self) -> Vec<String> {
         // If workspace includes are specified, use only those (don't combine with plugin includes)
@@ -430,7 +531,7 @@ impl WorkspaceProvider for ConfigurableWorkspaceProvider {
         }
 
         // Otherwise, use plugin includes
-        let plugin_includes = self.inner.include_path_globs();
+        let plugin_includes = self.inner.workspace_provider().include_path_globs();
         if !plugin_includes.is_empty() {
             return plugin_includes;
         }
@@ -441,12 +542,18 @@ impl WorkspaceProvider for ConfigurableWorkspaceProvider {
 
     fn exclude_path_globs(&self) -> Vec<String> {
         let mut excludes = self.workspace_excludes.clone();
-        let plugin_excludes = self.inner.exclude_path_globs();
+        let plugin_excludes = self.inner.workspace_provider().exclude_path_globs();
         excludes.extend(plugin_excludes);
         excludes
     }
 
-    fn on_file_found(&self, workspace: &Workspace, path: &Path) -> Option<InferredProject> {
-        self.inner.on_file_found(workspace, path)
+    fn on_file_found(
+        &self,
+        workspace: &marty_plugin_protocol::Workspace,
+        path: &Path,
+    ) -> Option<InferredProject> {
+        self.inner
+            .workspace_provider()
+            .on_file_found(workspace, path)
     }
 }

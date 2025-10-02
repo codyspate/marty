@@ -1,24 +1,98 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use marty_plugin_protocol::InferredProjectMessage;
+use marty_plugin_protocol::{
+    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, Workspace,
+    WorkspaceProvider,
+};
+use serde_json::{json, Value as JsonValue};
 use toml::Value;
 
-pub fn include_path_globs() -> Vec<String> {
-    vec![
-        "**/Cargo.toml".to_string(),
-        "**/*.rs".to_string(),
-    ]
+/// Main Cargo plugin struct
+pub struct CargoPlugin;
+
+/// Workspace provider for Cargo projects  
+pub struct CargoWorkspaceProvider;
+
+impl Default for CargoPlugin {
+    fn default() -> Self {
+        Self
+    }
 }
 
-#[deprecated(note = "Use include_path_globs instead")]
-pub fn ignore_path_globs() -> Vec<String> {
-    vec![
-        "**/target/**".to_string(),
-        "**/.git/**".to_string(),
-        "**/node_modules/**".to_string(),
-    ]
+impl CargoPlugin {
+    pub const fn new() -> Self {
+        Self
+    }
 }
+
+impl WorkspaceProvider for CargoWorkspaceProvider {
+    fn include_path_globs(&self) -> Vec<String> {
+        vec!["**/Cargo.toml".to_string()]
+    }
+
+    fn exclude_path_globs(&self) -> Vec<String> {
+        vec!["**/target/**".to_string()]
+    }
+
+    fn on_file_found(&self, _workspace: &Workspace, path: &Path) -> Option<InferredProject> {
+        if path.file_name()?.to_str()? != "Cargo.toml" {
+            return None;
+        }
+
+        let contents = std::fs::read_to_string(path).ok()?;
+        let message = process_manifest(path, &contents)?;
+
+        Some(InferredProject {
+            name: message.name,
+            project_dir: std::path::PathBuf::from(message.project_dir),
+            discovered_by: message.discovered_by,
+            workspace_dependencies: message.workspace_dependencies,
+        })
+    }
+}
+
+impl MartyPlugin for CargoPlugin {
+    fn name(&self) -> &str {
+        "Cargo Plugin"
+    }
+
+    fn key(&self) -> &str {
+        "cargo"
+    }
+
+    fn workspace_provider(&self) -> &dyn WorkspaceProvider {
+        &CargoWorkspaceProvider
+    }
+
+    fn configuration_options(&self) -> Option<JsonValue> {
+        Some(json!({
+            "type": "object",
+            "properties": {
+                "includes": {
+                    "type": "array",
+                    "description": "Additional glob patterns to include in scanning",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                },
+                "excludes": {
+                    "type": "array",
+                    "description": "Additional glob patterns to exclude from scanning",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                }
+            },
+            "additionalProperties": false
+        }))
+    }
+}
+
+// Export the plugin using the dynamic library interface
+export_plugin!(CargoPlugin);
 
 pub fn process_manifest(
     manifest_path: &Path,
