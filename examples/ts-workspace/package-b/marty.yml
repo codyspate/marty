@@ -1,0 +1,10 @@
+tasks:
+  - name: build
+    command: "pnpm exec tsc"
+    description: "Build TypeScript project"
+  - name: clean
+    command: "pnpm exec rimraf dist"
+    description: "Clean build output"
+  - name: dev
+    command: "pnpm exec tsc --watch"
+    description: "Build in watch mode for development"

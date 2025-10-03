@@ -1,0 +1,20 @@
+name: "TypeScript Workspace Example"
+description: "Example TypeScript monorepo with PNPM workspace and Marty integration"
+
+plugins:
+  # TypeScript plugin for detecting TypeScript projects and managing project references
+  # Note: This plugin detects TypeScript projects but relies on other plugins (like PNPM) 
+  # to provide workspace dependency information for auto project references
+  - url: https://github.com/codyspate/marty/releases/download/marty-plugin-typescript-v0.2.1/marty-plugin-typescript-v0.2.1-x86_64-unknown-linux-gnu.so
+    options:
+      auto_project_references: true
+      reference_path_style: "relative"
+
+  # Note: PNPM plugin would be added here once available to detect workspace dependencies:
+  # - url: https://github.com/codyspate/marty/releases/download/marty-plugin-pnpm-v0.2.0/marty-plugin-pnpm-v0.2.0-x86_64-unknown-linux-gnu.so
+  #   options:
+  #     includes:
+  #       - "**/package.json"
+  #       - "pnpm-workspace.yaml"
+  #     excludes:
+  #       - "**/node_modules/**"

@@ -1,0 +1,28 @@
+{
+    "name": "@repo/package-a",
+    "version": "1.0.0",
+    "description": "Shared utilities package",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "clean": "rimraf dist",
+        "typecheck": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0",
+        "rimraf": "^5.0.0"
+    }
+}

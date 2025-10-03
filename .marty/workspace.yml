@@ -2,7 +2,8 @@ name: "Marty Workspace"
 description: "Example Marty workspace configuration"
 includes: 
   - "crates/**"
-plugins: []
+plugins: 
+  - url: https://github.com/codyspate/marty/releases/download/marty-plugin-cargo-v0.2.2/marty-plugin-cargo-v0.2.2-x86_64-unknown-linux-gnu.so
   # Example of URL-based plugin:
   # - url: "https://github.com/codyspate/marty/releases/latest/download/marty-plugin-typescript.wasm"
   #   enabled: true
