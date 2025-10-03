@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use marty_core::{
     platform::PlatformInfo, plugin_cache::PluginCache, workspace_manager::WorkspaceManager,
 };
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::PluginCommands;
 
@@ -73,7 +73,7 @@ pub async fn execute(manager: &WorkspaceManager, command: PluginCommands) -> Res
     Ok(())
 }
 
-async fn validate_plugin(path: &PathBuf, expected_name: Option<&str>) -> Result<()> {
+async fn validate_plugin(path: &Path, expected_name: Option<&str>) -> Result<()> {
     println!("🔍 Validating plugin: {}", path.display());
     println!();
 
