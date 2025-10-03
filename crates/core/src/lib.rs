@@ -39,6 +39,7 @@
 
 pub mod configs;
 pub mod execution;
+pub mod platform;
 pub mod plugin_cache;
 pub mod plugin_runtime_dylib;
 pub mod results;

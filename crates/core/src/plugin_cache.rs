@@ -9,6 +9,7 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
 use crate::configs::workspace::PluginConfig;
+use crate::platform::PlatformInfo;
 use crate::plugin_runtime_dylib::DylibWorkspaceProvider;
 use crate::types::MartyResult;
 use marty_plugin_protocol::MartyPlugin;
@@ -196,7 +197,34 @@ impl PluginCache {
         let enabled = config.enabled.unwrap_or(true);
         let options = config.options.clone();
 
-        // Handle URL-based plugins
+        // Priority 1: GitHub repository + version (new convention)
+        if let (Some(repository), Some(version)) = (&config.repository, &config.version) {
+            let url = self.resolve_github_plugin_url(repository, version)?;
+            let temp_name = self.extract_plugin_name_from_repo(repository)?;
+
+            let cached_path = self.download_and_cache_plugin(&temp_name, &url).await?;
+
+            let plugin_name = self
+                .load_plugin_and_validate_options(&cached_path, &options)
+                .unwrap_or_else(|e| {
+                    eprintln!(
+                        "Warning: Failed to validate plugin options for '{}': {}",
+                        temp_name, e
+                    );
+                    self.load_plugin_and_get_name(&cached_path)
+                        .unwrap_or_else(|_| temp_name.clone())
+                });
+
+            return Ok(CachedPlugin {
+                name: plugin_name,
+                path: cached_path,
+                url: Some(url),
+                enabled,
+                options,
+            });
+        }
+
+        // Priority 2: Direct URL (fallback for custom hosting)
         if let Some(url) = &config.url {
             // Use temporary name for downloading (extract from URL)
             let temp_name = url
@@ -232,7 +260,7 @@ impl PluginCache {
             });
         }
 
-        // Handle local path plugins
+        // Priority 3: Local path
         if let Some(path_str) = &config.path {
             let temp_name = Path::new(path_str)
                 .file_stem()
@@ -242,13 +270,7 @@ impl PluginCache {
 
             let path = if path_str == "builtin" {
                 // Handle builtin plugins - look for them in the .marty/cache/plugins directory first
-                let extension = if cfg!(target_os = "windows") {
-                    "dll"
-                } else if cfg!(target_os = "macos") {
-                    "dylib"
-                } else {
-                    "so"
-                };
+                let extension = PlatformInfo::current_extension();
 
                 let cache_path = self
                     .cache_dir
@@ -288,10 +310,56 @@ impl PluginCache {
             });
         }
 
-        // If neither URL nor path is specified, this is an error
+        // If neither repository+version, URL, nor path is specified, this is an error
         Err(anyhow::anyhow!(
-            "Plugin configuration must specify either 'url' or 'path'"
+            "Plugin configuration must specify either 'repository' + 'version', 'url', or 'path'"
         ))
+    }
+
+    /// Resolve a GitHub plugin repository and version to a download URL
+    fn resolve_github_plugin_url(&self, repository: &str, version: &str) -> Result<String> {
+        let plugin_name = self.extract_plugin_name_from_repo(repository)?;
+        let platform = PlatformInfo::current();
+
+        // Standard naming convention: marty-plugin-{name}-v{version}-{target}.{ext}
+        let filename = format!(
+            "marty-plugin-{}-v{}-{}.{}",
+            plugin_name, version, platform.target, platform.extension
+        );
+
+        // GitHub releases URL format
+        let url = format!(
+            "https://github.com/{}/releases/download/v{}/{}",
+            repository, version, filename
+        );
+
+        Ok(url)
+    }
+
+    /// Extract plugin name from GitHub repository
+    /// Expected format: "owner/marty-plugin-name" -> "name"
+    fn extract_plugin_name_from_repo(&self, repository: &str) -> Result<String> {
+        let repo_name = repository.rsplit('/').next().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Invalid repository format: '{}'. Expected 'owner/repo'",
+                repository
+            )
+        })?;
+
+        let plugin_name = repo_name
+            .strip_prefix("marty-plugin-")
+            .ok_or_else(|| anyhow::anyhow!(
+                "Repository name must start with 'marty-plugin-': '{}'. Example: 'owner/marty-plugin-cargo'", 
+                repo_name
+            ))?;
+
+        if plugin_name.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Plugin name cannot be empty. Repository format should be 'owner/marty-plugin-{{name}}'"
+            ));
+        }
+
+        Ok(plugin_name.to_string())
     }
 
     /// Download a plugin from URL and cache it locally
@@ -402,5 +470,104 @@ impl PluginCache {
                 })?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_plugin_name_from_repo() {
+        let cache = PluginCache {
+            cache_dir: PathBuf::from("/tmp"),
+            client: reqwest::Client::new(),
+        };
+
+        // Valid repository names
+        assert_eq!(
+            cache
+                .extract_plugin_name_from_repo("codyspate/marty-plugin-cargo")
+                .unwrap(),
+            "cargo"
+        );
+        assert_eq!(
+            cache
+                .extract_plugin_name_from_repo("user/marty-plugin-typescript")
+                .unwrap(),
+            "typescript"
+        );
+        assert_eq!(
+            cache
+                .extract_plugin_name_from_repo("org/marty-plugin-my-custom-plugin")
+                .unwrap(),
+            "my-custom-plugin"
+        );
+
+        // Invalid formats
+        assert!(cache.extract_plugin_name_from_repo("no-slash").is_err());
+        assert!(cache
+            .extract_plugin_name_from_repo("user/cargo-plugin")
+            .is_err());
+        assert!(cache
+            .extract_plugin_name_from_repo("user/marty-plugin-")
+            .is_err());
+    }
+
+    #[test]
+    fn test_resolve_github_plugin_url_linux() {
+        let cache = PluginCache {
+            cache_dir: PathBuf::from("/tmp"),
+            client: reqwest::Client::new(),
+        };
+
+        let url = cache
+            .resolve_github_plugin_url("codyspate/marty-plugin-cargo", "0.2.0")
+            .unwrap();
+
+        // URL should contain the repository, version, and platform info
+        assert!(url.contains("github.com/codyspate/marty-plugin-cargo"));
+        assert!(url.contains("v0.2.0"));
+        assert!(url.contains("marty-plugin-cargo-v0.2.0"));
+
+        // Should have platform-specific target and extension
+        #[cfg(target_os = "linux")]
+        {
+            assert!(
+                url.contains("x86_64-unknown-linux-gnu")
+                    || url.contains("aarch64-unknown-linux-gnu")
+            );
+            assert!(url.ends_with(".so"));
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            assert!(url.contains("apple-darwin"));
+            assert!(url.ends_with(".dylib"));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            assert!(url.contains("pc-windows-msvc"));
+            assert!(url.ends_with(".dll"));
+        }
+    }
+
+    #[test]
+    fn test_resolve_github_plugin_url_format() {
+        let cache = PluginCache {
+            cache_dir: PathBuf::from("/tmp"),
+            client: reqwest::Client::new(),
+        };
+
+        let url = cache
+            .resolve_github_plugin_url("user/marty-plugin-test", "1.0.0")
+            .unwrap();
+
+        // Verify URL structure
+        assert!(
+            url.starts_with("https://github.com/user/marty-plugin-test/releases/download/v1.0.0/")
+        );
+        assert!(url.contains("marty-plugin-test-v1.0.0-"));
     }
 }

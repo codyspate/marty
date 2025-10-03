@@ -85,25 +85,33 @@ Marty uses YAML configuration files for workspace and task definitions:
 ```yaml
 name: "My Workspace"
 plugins:
-  # Built-in plugin
-  - name: "cargo"
-    path: "builtin"
-    enabled: true
+  # GitHub convention (recommended) - automatically resolves platform-specific binaries
+  - repository: "codyspate/marty-plugin-cargo"
+    version: "0.2.0"
     options:
       includes: ["crates/**", "plugins/*"]
   
-  # URL-based plugin (downloaded and cached)
-  - name: "typescript"
-    url: "https://github.com/owner/repo/releases/latest/download/plugin.wasm"
-    enabled: true
+  - repository: "codyspate/marty-plugin-typescript"
+    version: "0.2.1"
     options:
-      includes: ["**/*.ts", "**/tsconfig.json"]
+      auto_project_references: true
       
-  # Local file plugin
-  - name: "custom"
-    path: "/path/to/custom-plugin.wasm"
+  # Direct URL for custom hosting (fallback)
+  - url: "https://custom-host.com/plugins/my-plugin.so"
+    options:
+      custom_option: true
+      
+  # Local file path for development
+  - path: "/path/to/custom-plugin.so"
     enabled: false
 ```
+
+**Plugin Resolution:**
+- **GitHub Convention**: Just specify `repository` + `version`, Marty automatically downloads the correct binary for your platform
+- **Direct URL**: Specify exact URL to plugin binary (not cross-platform)
+- **Local Path**: Use local filesystem path for development
+
+See [Plugin Resolution Guide](docs/PLUGIN_RESOLUTION.md) for details.
 
 ### Task Definitions (`.marty/tasks/build.yml`)
 

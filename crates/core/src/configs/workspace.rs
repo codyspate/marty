@@ -18,7 +18,13 @@ pub struct WorkspaceConfig {
 #[derive(Deserialize, Serialize, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PluginConfig {
+    /// GitHub repository in "owner/repo" format (e.g., "codyspate/marty-plugin-cargo")
+    pub repository: Option<String>,
+    /// Plugin version (e.g., "0.2.0")
+    pub version: Option<String>,
+    /// Direct URL to plugin binary (fallback for custom hosting)
     pub url: Option<String>,
+    /// Local path to plugin binary
     pub path: Option<String>,
     pub enabled: Option<bool>,
     pub options: Option<serde_json::Value>,
