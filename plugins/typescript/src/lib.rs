@@ -1,9 +1,9 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use marty_plugin_protocol::{
-    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, Workspace,
-    WorkspaceProvider,
+    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, PluginType,
+    Workspace, WorkspaceProvider,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
@@ -42,35 +42,28 @@ impl TypeScriptPlugin {
 
 impl WorkspaceProvider for TypeScriptWorkspaceProvider {
     fn include_path_globs(&self) -> Vec<String> {
-        vec!["**/tsconfig.json".to_string()]
+        // Return empty vec - TypeScript plugin doesn't discover projects
+        // It only adds TypeScript-specific functionality to projects discovered by other plugins
+        vec![]
     }
 
     fn exclude_path_globs(&self) -> Vec<String> {
-        vec![
-            "**/node_modules/**".to_string(),
-            "**/.git/**".to_string(),
-            "**/dist/**".to_string(),
-        ]
+        vec![]
     }
 
-    fn on_file_found(&self, _workspace: &Workspace, path: &Path) -> Option<InferredProject> {
-        if path.file_name()?.to_str()? != "tsconfig.json" {
-            return None;
-        }
-
-        let contents = std::fs::read_to_string(path).ok()?;
-        let message = process_tsconfig(path, &contents)?;
-
-        Some(InferredProject {
-            name: message.name,
-            project_dir: std::path::PathBuf::from(message.project_dir),
-            discovered_by: message.discovered_by,
-            workspace_dependencies: message.workspace_dependencies,
-        })
+    fn on_file_found(&self, _workspace: &Workspace, _path: &Path) -> Option<InferredProject> {
+        // TypeScript plugin doesn't discover projects
+        // Projects should be discovered by package.json-based plugins (PNPM, NPM, etc.)
+        // This plugin only provides TypeScript-specific enhancements like project references
+        None
     }
 }
 
 impl MartyPlugin for TypeScriptPlugin {
+    fn plugin_type(&self) -> PluginType {
+        PluginType::Supplemental
+    }
+
     fn name(&self) -> &str {
         "TypeScript Plugin"
     }
@@ -86,26 +79,11 @@ impl MartyPlugin for TypeScriptPlugin {
     fn configuration_options(&self) -> Option<JsonValue> {
         Some(json!({
             "type": "object",
+            "description": "TypeScript plugin provides TypeScript-specific enhancements for projects discovered by other plugins (e.g., PNPM, NPM). It does not discover projects itself.",
             "properties": {
-                "includes": {
-                    "type": "array",
-                    "description": "Additional glob patterns to include in scanning",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": []
-                },
-                "excludes": {
-                    "type": "array",
-                    "description": "Additional glob patterns to exclude from scanning",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": []
-                },
                 "auto_project_references": {
                     "type": "boolean",
-                    "description": "Automatically add project references to tsconfig.json files based on workspace dependencies detected by other plugins (e.g., PNPM)",
+                    "description": "Automatically add TypeScript project references to tsconfig.json files based on workspace dependencies detected by other plugins (e.g., PNPM)",
                     "default": false
                 },
                 "reference_path_style": {
@@ -246,10 +224,6 @@ pub struct TypeScriptPluginConfig {
     pub auto_project_references: bool,
     #[serde(default = "default_reference_path_style")]
     pub reference_path_style: String,
-    #[serde(default)]
-    pub includes: Vec<String>,
-    #[serde(default)]
-    pub excludes: Vec<String>,
 }
 
 fn default_reference_path_style() -> String {
@@ -279,28 +253,23 @@ pub fn update_workspace_project_references(
 
     let mut updated_projects = Vec::new();
 
-    // Process all TypeScript projects (both explicit and inferred)
-    let ts_projects: Vec<(&String, &PathBuf, &[String])> = workspace
-        .inferred_projects
-        .iter()
-        .filter(|p| p.discovered_by == "typescript")
-        .map(|p| (&p.name, &p.project_dir, p.workspace_dependencies.as_slice()))
-        .collect();
+    // Process ALL inferred projects (from any plugin) that have a tsconfig.json file
+    // This allows TypeScript plugin to enhance projects discovered by PNPM, NPM, etc.
+    for project in &workspace.inferred_projects {
+        let tsconfig_path = project.project_dir.join("tsconfig.json");
 
-    for (project_name, project_dir, dependencies) in ts_projects {
-        let tsconfig_path = project_dir.join("tsconfig.json");
-
-        if tsconfig_path.exists() && !dependencies.is_empty() {
+        // Only process if tsconfig.json exists and project has workspace dependencies
+        if tsconfig_path.exists() && !project.workspace_dependencies.is_empty() {
             match update_project_references(
                 &tsconfig_path,
-                dependencies,
+                &project.workspace_dependencies,
                 workspace,
                 &config.reference_path_style,
             ) {
                 Ok(true) => {
                     updated_projects.push(format!(
                         "Updated project references for: {} ({})",
-                        project_name,
+                        project.name,
                         tsconfig_path.display()
                     ));
                 }
@@ -310,7 +279,7 @@ pub fn update_workspace_project_references(
                 Err(e) => {
                     eprintln!(
                         "Failed to update project references for {}: {}",
-                        project_name, e
+                        project.name, e
                     );
                 }
             }
@@ -327,31 +296,25 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn detects_typescript_project() {
+    fn typescript_plugin_does_not_discover_projects() {
+        // TypeScript plugin no longer discovers projects - that's the job of PNPM/NPM plugins
+        let provider = TypeScriptWorkspaceProvider;
+
+        // Should return empty include patterns
+        assert_eq!(provider.include_path_globs(), Vec::<String>::new());
+
+        // Should always return None for on_file_found
         let temp_dir = tempdir().unwrap();
-        let project_dir = temp_dir.path().join("api");
-        std::fs::create_dir_all(&project_dir).unwrap();
+        let tsconfig_path = temp_dir.path().join("tsconfig.json");
+        std::fs::write(&tsconfig_path, r#"{"compilerOptions": {}}"#).unwrap();
 
-        let config = r#"
-{
-  "compilerOptions": {
-    "composite": true
-  },
-  "references": [
-    { "path": "../shared/tsconfig.json" },
-    { "path": "../ui" }
-  ]
-}
-"#;
+        let workspace = Workspace {
+            root: temp_dir.path().to_path_buf(),
+            projects: vec![],
+            inferred_projects: vec![],
+        };
 
-        let message = process_tsconfig(&project_dir.join("tsconfig.json"), config)
-            .expect("should return inferred project");
-
-        assert_eq!(message.name, "api");
-        assert_eq!(message.discovered_by, "typescript");
-        assert_eq!(message.project_dir, project_dir.display().to_string());
-        // TypeScript plugin doesn't detect workspace dependencies - that's the PNPM plugin's job
-        assert_eq!(message.workspace_dependencies, Vec::<String>::new());
+        assert!(provider.on_file_found(&workspace, &tsconfig_path).is_none());
     }
 
     #[test]
@@ -383,7 +346,7 @@ mod tests {
         )
         .unwrap();
 
-        // Create mock workspace
+        // Create mock workspace with projects discovered by PNPM plugin
         let workspace = Workspace {
             root: workspace_root.to_path_buf(),
             projects: vec![],
@@ -391,13 +354,13 @@ mod tests {
                 InferredProject {
                     name: "shared".to_string(),
                     project_dir: shared_dir.clone(),
-                    discovered_by: "typescript".to_string(),
+                    discovered_by: "pnpm".to_string(),
                     workspace_dependencies: vec![],
                 },
                 InferredProject {
                     name: "ui".to_string(),
                     project_dir: ui_dir.clone(),
-                    discovered_by: "typescript".to_string(),
+                    discovered_by: "pnpm".to_string(),
                     workspace_dependencies: vec!["shared".to_string()],
                 },
             ],
@@ -435,14 +398,14 @@ mod tests {
         let api_tsconfig = api_dir.join("tsconfig.json");
         fs::write(&api_tsconfig, r#"{"compilerOptions": {"composite": true}}"#).unwrap();
 
-        // Create mock workspace
+        // Create mock workspace with PNPM-discovered project
         let workspace = Workspace {
             root: workspace_root.to_path_buf(),
             projects: vec![],
             inferred_projects: vec![InferredProject {
                 name: "shared".to_string(),
                 project_dir: shared_dir.clone(),
-                discovered_by: "typescript".to_string(),
+                discovered_by: "pnpm".to_string(),
                 workspace_dependencies: vec![],
             }],
         };
@@ -470,17 +433,13 @@ mod tests {
     fn configuration_parsing() {
         let config_json = json!({
             "auto_project_references": true,
-            "reference_path_style": "tsconfig",
-            "includes": ["**/*.ts"],
-            "excludes": ["**/*.test.ts"]
+            "reference_path_style": "tsconfig"
         });
 
         let config: TypeScriptPluginConfig = serde_json::from_value(config_json).unwrap();
 
         assert!(config.auto_project_references);
         assert_eq!(config.reference_path_style, "tsconfig");
-        assert_eq!(config.includes, vec!["**/*.ts"]);
-        assert_eq!(config.excludes, vec!["**/*.test.ts"]);
     }
 
     #[test]

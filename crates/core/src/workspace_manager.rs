@@ -506,6 +506,10 @@ impl ConfigurableWorkspaceProvider {
 }
 
 impl MartyPlugin for ConfigurableWorkspaceProvider {
+    fn plugin_type(&self) -> marty_plugin_protocol::PluginType {
+        self.inner.plugin_type()
+    }
+
     fn name(&self) -> &str {
         self.inner.name()
     }

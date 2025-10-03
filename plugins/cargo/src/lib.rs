@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use marty_plugin_protocol::{
-    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, Workspace,
-    WorkspaceProvider,
+    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, PluginType,
+    Workspace, WorkspaceProvider,
 };
 use serde_json::{json, Value as JsonValue};
 use toml::Value;
@@ -53,6 +53,10 @@ impl WorkspaceProvider for CargoWorkspaceProvider {
 }
 
 impl MartyPlugin for CargoPlugin {
+    fn plugin_type(&self) -> PluginType {
+        PluginType::Primary
+    }
+
     fn name(&self) -> &str {
         "Cargo Plugin"
     }

@@ -55,6 +55,39 @@ enum PluginCommands {
     Clear,
     /// Update all plugins from their URLs
     Update,
+    /// Validate a plugin for publication (for plugin developers)
+    Validate {
+        /// Path to the plugin binary to validate
+        path: PathBuf,
+        /// Expected plugin name (should match the name returned by the plugin)
+        #[arg(short, long)]
+        name: Option<String>,
+    },
+    /// Check if a plugin release exists on GitHub
+    CheckRelease {
+        /// GitHub repository (e.g., "owner/repo")
+        #[arg(short, long)]
+        github_repo: String,
+        /// Plugin name (for monorepo releases)
+        #[arg(short, long)]
+        plugin: Option<String>,
+        /// Version to check (e.g., "0.2.0")
+        #[arg(short, long)]
+        version: String,
+    },
+    /// Generate release naming guide for a plugin
+    ReleaseGuide {
+        /// Plugin name (e.g., "typescript", "cargo")
+        name: String,
+        /// Version (e.g., "0.2.0")
+        version: String,
+        /// GitHub repository (e.g., "owner/repo")
+        #[arg(short, long)]
+        github_repo: Option<String>,
+        /// Use monorepo release format
+        #[arg(short, long)]
+        monorepo: bool,
+    },
 }
 
 #[tokio::main]

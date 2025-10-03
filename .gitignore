@@ -96,7 +96,7 @@ tramp
 
 # Local configuration
 .marty/local.yml
-.marty/cache/
+**/.marty/cache/
 
 # Test artifacts
 test-results/

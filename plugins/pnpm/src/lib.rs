@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use marty_plugin_protocol::{
-    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, Workspace,
-    WorkspaceProvider,
+    dylib::export_plugin, InferredProject, InferredProjectMessage, MartyPlugin, PluginType,
+    Workspace, WorkspaceProvider,
 };
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
@@ -71,6 +71,10 @@ impl WorkspaceProvider for PnpmWorkspaceProvider {
 }
 
 impl MartyPlugin for PnpmPlugin {
+    fn plugin_type(&self) -> PluginType {
+        PluginType::Primary
+    }
+
     fn name(&self) -> &str {
         "PNPM Plugin"
     }

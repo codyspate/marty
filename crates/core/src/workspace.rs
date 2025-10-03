@@ -100,6 +100,7 @@ pub fn traverse_workspace(caller: &dyn WorkspaceProvider, workspace: &mut Worksp
                                 name: project.name.clone(),
                                 project_dir: project.project_dir.clone(),
                                 file_path: Some(manifest_path),
+                                dependencies: Vec::new(),
                             });
                         }
 

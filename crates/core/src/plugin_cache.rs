@@ -198,9 +198,18 @@ impl PluginCache {
         let options = config.options.clone();
 
         // Priority 1: GitHub repository + version (new convention)
-        if let (Some(repository), Some(version)) = (&config.repository, &config.version) {
-            let url = self.resolve_github_plugin_url(repository, version)?;
-            let temp_name = self.extract_plugin_name_from_repo(repository)?;
+        if let (Some(github_repo), Some(version)) = (&config.github_repo, &config.version) {
+            let (url, temp_name) = if let Some(plugin_name) = &config.plugin {
+                // Monorepo mode: plugin specified separately
+                let url =
+                    self.resolve_github_plugin_url_monorepo(github_repo, plugin_name, version)?;
+                (url, plugin_name.clone())
+            } else {
+                // Separate repo mode: extract plugin name from repository name
+                let url = self.resolve_github_plugin_url(github_repo, version)?;
+                let temp_name = self.extract_plugin_name_from_repo(github_repo)?;
+                (url, temp_name)
+            };
 
             let cached_path = self.download_and_cache_plugin(&temp_name, &url).await?;
 
@@ -317,6 +326,7 @@ impl PluginCache {
     }
 
     /// Resolve a GitHub plugin repository and version to a download URL
+    /// For separate plugin repositories (e.g., "owner/marty-plugin-cargo")
     fn resolve_github_plugin_url(&self, repository: &str, version: &str) -> Result<String> {
         let plugin_name = self.extract_plugin_name_from_repo(repository)?;
         let platform = PlatformInfo::current();
@@ -336,9 +346,33 @@ impl PluginCache {
         Ok(url)
     }
 
+    /// Resolve a GitHub plugin URL for monorepo containing multiple plugins
+    /// For repositories that contain multiple plugins (e.g., "owner/marty")
+    fn resolve_github_plugin_url_monorepo(
+        &self,
+        repository: &str,
+        plugin_name: &str,
+        version: &str,
+    ) -> Result<String> {
+        let platform = PlatformInfo::current();
+
+        // Monorepo naming convention: marty-plugin-{name}-v{version}-{target}.{ext}
+        let filename = format!(
+            "marty-plugin-{}-v{}-{}.{}",
+            plugin_name, version, platform.target, platform.extension
+        );
+
+        // GitHub releases URL format with plugin name in tag
+        let url = format!(
+            "https://github.com/{}/releases/download/marty-plugin-{}-v{}/{}",
+            repository, plugin_name, version, filename
+        );
+
+        Ok(url)
+    }
     /// Extract plugin name from GitHub repository
     /// Expected format: "owner/marty-plugin-name" -> "name"
-    fn extract_plugin_name_from_repo(&self, repository: &str) -> Result<String> {
+    pub fn extract_plugin_name_from_repo(&self, repository: &str) -> Result<String> {
         let repo_name = repository.rsplit('/').next().ok_or_else(|| {
             anyhow::anyhow!(
                 "Invalid repository format: '{}'. Expected 'owner/repo'",
@@ -395,11 +429,29 @@ impl PluginCache {
             .with_context(|| format!("Failed to download plugin from {}", url))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "Failed to download plugin from {}: HTTP {}",
-                url,
-                response.status()
-            ));
+            let status = response.status();
+            let error_msg = if status == reqwest::StatusCode::NOT_FOUND {
+                format!(
+                    "Failed to download plugin from {}: HTTP 404 Not Found\n\n\
+                    Possible causes:\n\
+                    • Plugin version '{}' may not exist or hasn't been published\n\
+                    • The binary for your platform ({}) may not be available\n\
+                    • The repository may not have separate plugin releases yet\n\n\
+                    Suggestions:\n\
+                    • Check available releases: https://github.com/{}/releases\n\
+                    • Verify the version number is correct\n\
+                    • Try using a direct URL to the main repository if plugins aren't published separately\n\
+                    • For development, use a local path: path: \"/path/to/plugin.so\"",
+                    url,
+                    name,
+                    PlatformInfo::current().target,
+                    // Extract owner/repo from URL if possible
+                    url.split("/releases/").next().unwrap_or("").trim_start_matches("https://github.com/")
+                )
+            } else {
+                format!("Failed to download plugin from {}: HTTP {}", url, status)
+            };
+            return Err(anyhow::anyhow!(error_msg));
         }
 
         let bytes = response
@@ -569,5 +621,46 @@ mod tests {
             url.starts_with("https://github.com/user/marty-plugin-test/releases/download/v1.0.0/")
         );
         assert!(url.contains("marty-plugin-test-v1.0.0-"));
+    }
+
+    #[test]
+    fn test_resolve_github_plugin_url_monorepo() {
+        let cache = PluginCache {
+            cache_dir: PathBuf::from("/tmp"),
+            client: reqwest::Client::new(),
+        };
+
+        let url = cache
+            .resolve_github_plugin_url_monorepo("codyspate/marty", "typescript", "0.2.2")
+            .unwrap();
+
+        // URL should contain the repository, plugin name, and version
+        assert!(url.contains("github.com/codyspate/marty"));
+        assert!(url.contains("marty-plugin-typescript-v0.2.2"));
+
+        // Tag should be marty-plugin-{name}-v{version}
+        assert!(url.contains("/releases/download/marty-plugin-typescript-v0.2.2/"));
+
+        // Should have platform-specific target and extension
+        #[cfg(target_os = "linux")]
+        {
+            assert!(
+                url.contains("x86_64-unknown-linux-gnu")
+                    || url.contains("aarch64-unknown-linux-gnu")
+            );
+            assert!(url.ends_with(".so"));
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            assert!(url.contains("apple-darwin"));
+            assert!(url.ends_with(".dylib"));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            assert!(url.contains("pc-windows-msvc"));
+            assert!(url.ends_with(".dll"));
+        }
     }
 }

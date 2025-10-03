@@ -2,15 +2,11 @@ name: "TypeScript Workspace Example"
 description: "Example TypeScript monorepo with PNPM workspace and Marty integration"
 
 plugins:
-  # TypeScript plugin - Using direct URL as fallback until v0.2.2 is published
-  # Future: Use GitHub convention once published
-  # - repository: "codyspate/marty-plugin-typescript"
-  #   version: "0.2.2"
-  - url: "https://github.com/codyspate/marty/releases/download/marty-plugin-typescript-v0.2.1/marty-plugin-typescript-v0.2.1-x86_64-unknown-linux-gnu.so"
-    options:
-      auto_project_references: true
-      reference_path_style: "relative"
-
-  # Note: PNPM plugin would be added here once available:
-  # - repository: "codyspate/marty-plugin-pnpm"
-  #   version: "0.2.0"
+  # TypeScript plugin - provides TypeScript-specific enhancements (project references)
+  # Uses local path for testing
+  - path: "../../plugins/typescript/target/release/libmarty_plugin_typescript.so"
+    
+  # PNPM plugin - discovers projects from package.json files
+  - githubRepo: codyspate/marty
+    plugin: pnpm
+    version: 0.2.1

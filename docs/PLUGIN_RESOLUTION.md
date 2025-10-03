@@ -14,20 +14,24 @@ Marty supports three plugin resolution strategies with automatic fallback:
 
 ### 1. GitHub Convention (Recommended)
 
-The simplest and most cross-platform friendly approach:
+Marty supports two flavors of the GitHub convention:
+
+#### a) Separate Repository Approach
+
+Each plugin has its own repository:
 
 ```yaml
 plugins:
-  - repository: "codyspate/marty-plugin-cargo"
+  - githubRepo: "codyspate/marty-plugin-cargo"
     version: "0.2.0"
     options:
       # Plugin-specific options
 ```
 
 **How it works:**
-- Marty detects your OS and architecture automatically
-- Constructs the GitHub release URL following the standard naming convention
-- Downloads and caches the appropriate binary
+- Plugin name is extracted from repository name (`marty-plugin-cargo` → `cargo`)
+- Release tag: `v{version}` (e.g., `v0.2.0`)
+- Binary name: `marty-plugin-{name}-v{version}-{target}.{ext}`
 
 **URL Construction:**
 ```
@@ -40,11 +44,46 @@ https://github.com/{repository}/releases/download/v{version}/marty-plugin-{name}
 - Platform: Linux x86_64
 - Generated URL: `https://github.com/codyspate/marty-plugin-cargo/releases/download/v0.2.0/marty-plugin-cargo-v0.2.0-x86_64-unknown-linux-gnu.so`
 
+#### b) Monorepo Approach
+
+Multiple plugins published in a single repository:
+
+```yaml
+plugins:
+  - githubRepo: "codyspate/marty"
+    plugin: "typescript"
+    version: "0.2.2"
+    
+  - githubRepo: "codyspate/marty"
+    plugin: "pnpm"
+    version: "0.1.0"
+```
+
+**How it works:**
+- Plugin name is explicitly specified via `plugin` field
+- Release tag: `marty-plugin-{plugin}-v{version}` (e.g., `marty-plugin-typescript-v0.2.2`)
+- Binary name: `marty-plugin-{plugin}-v{version}-{target}.{ext}`
+
+**URL Construction:**
+```
+https://github.com/{repository}/releases/download/marty-plugin-{plugin}-v{version}/marty-plugin-{plugin}-v{version}-{target}.{ext}
+```
+
+**Example:**
+- Repository: `codyspate/marty`
+- Plugin: `typescript`
+- Version: `0.2.2`
+- Platform: Linux x86_64
+- Generated URL: `https://github.com/codyspate/marty/releases/download/marty-plugin-typescript-v0.2.2/marty-plugin-typescript-v0.2.2-x86_64-unknown-linux-gnu.so`
+
+**See [Plugin Monorepo Approach](./PLUGIN_MONOREPO_APPROACH.md) for detailed monorepo setup guide.**
+
 **Benefits:**
 - ✅ Cross-platform: Same config works on all platforms
 - ✅ Shareable: Team members on different OSes use same config
 - ✅ Simple: Just specify repository and version
 - ✅ Familiar: Uses GitHub releases (free hosting)
+- ✅ Flexible: Supports both separate repos and monorepos
 
 ### 2. Direct URL
 

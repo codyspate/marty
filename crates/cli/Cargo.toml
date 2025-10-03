@@ -14,6 +14,7 @@ clap.workspace = true
 anyhow.workspace = true
 tokio = { version = "1.0", features = ["full"] }
 colored = "2.0"
+reqwest = "0.12"
 
 [[bin]]
 name = "marty"

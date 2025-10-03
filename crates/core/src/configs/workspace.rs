@@ -18,8 +18,11 @@ pub struct WorkspaceConfig {
 #[derive(Deserialize, Serialize, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PluginConfig {
-    /// GitHub repository in "owner/repo" format (e.g., "codyspate/marty-plugin-cargo")
-    pub repository: Option<String>,
+    /// GitHub repository in "owner/repo" format (e.g., "codyspate/marty-plugin-cargo" or "codyspate/marty")
+    pub github_repo: Option<String>,
+    /// Plugin name when repository contains multiple plugins (e.g., "typescript", "cargo")
+    /// Used to find releases named "marty-plugin-{plugin}-v{version}" in the repository
+    pub plugin: Option<String>,
     /// Plugin version (e.g., "0.2.0")
     pub version: Option<String>,
     /// Direct URL to plugin binary (fallback for custom hosting)

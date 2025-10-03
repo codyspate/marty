@@ -5,12 +5,15 @@ use std::sync::Mutex;
 
 use anyhow::{Context, Result};
 use libloading::{Library, Symbol};
-use marty_plugin_protocol::{InferredProject, MartyPlugin, Workspace, WorkspaceProvider};
+use marty_plugin_protocol::{
+    InferredProject, MartyPlugin, PluginType, Workspace, WorkspaceProvider,
+};
 use serde_json::Value;
 
 /// Plugin function signatures for the C ABI interface
 type PluginNameFn = unsafe extern "C" fn() -> *const c_char;
 type PluginKeyFn = unsafe extern "C" fn() -> *const c_char;
+type PluginTypeFn = unsafe extern "C" fn() -> u8;
 type PluginConfigOptionsFn = unsafe extern "C" fn() -> *const c_char;
 type PluginOnFileFoundFn = extern "C" fn(*const c_char, *const c_char) -> *const c_char;
 type PluginCleanupStringFn = extern "C" fn(*const c_char);
@@ -19,6 +22,7 @@ type PluginCleanupStringFn = extern "C" fn(*const c_char);
 pub struct DylibWorkspaceProvider {
     name: String,
     key: String,
+    plugin_type: PluginType,
     library: Library,
     _temp_dir: Option<tempfile::TempDir>, // Hold onto temp dir to prevent cleanup
     call_lock: Mutex<()>,                 // Prevent concurrent calls to the same plugin
@@ -47,10 +51,12 @@ impl DylibWorkspaceProvider {
         // Get plugin metadata
         let name = Self::get_plugin_name(&library)?;
         let key = Self::get_plugin_key(&library)?;
+        let plugin_type = Self::get_plugin_type(&library)?;
 
         Ok(Self {
             name,
             key,
+            plugin_type,
             library,
             _temp_dir: None,
             call_lock: Mutex::new(()),
@@ -82,10 +88,12 @@ impl DylibWorkspaceProvider {
         // Get plugin metadata
         let name = Self::get_plugin_name(&library)?;
         let key = Self::get_plugin_key(&library)?;
+        let plugin_type = Self::get_plugin_type(&library)?;
 
         Ok(Self {
             name,
             key,
+            plugin_type,
             library,
             _temp_dir: Some(temp_dir), // Keep temp dir alive
             call_lock: Mutex::new(()),
@@ -147,6 +155,23 @@ impl DylibWorkspaceProvider {
             }
 
             Ok(key)
+        }
+    }
+
+    /// Extract plugin type from the library
+    fn get_plugin_type(library: &Library) -> Result<PluginType> {
+        unsafe {
+            let type_fn: Symbol<PluginTypeFn> = library
+                .get(b"plugin_type")
+                .context("Plugin missing plugin_type function")?;
+
+            let type_value = type_fn();
+            match type_value {
+                0 => Ok(PluginType::Primary),
+                1 => Ok(PluginType::Supplemental),
+                2 => Ok(PluginType::Hook),
+                _ => Err(anyhow::anyhow!("Invalid plugin type value: {}", type_value)),
+            }
         }
     }
 
@@ -228,9 +253,8 @@ impl WorkspaceProvider for DylibWorkspaceProvider {
         let path_cstr = CString::new(path_str.as_ref()).ok()?;
         let contents_cstr = CString::new(contents).ok()?;
 
-        let func: Symbol<PluginOnFileFoundFn> = unsafe {
-            self.library.get(b"plugin_on_file_found").ok()?
-        };
+        let func: Symbol<PluginOnFileFoundFn> =
+            unsafe { self.library.get(b"plugin_on_file_found").ok()? };
 
         let result_ptr = func(path_cstr.as_ptr(), contents_cstr.as_ptr());
         if result_ptr.is_null() {
@@ -245,8 +269,7 @@ impl WorkspaceProvider for DylibWorkspaceProvider {
         if result_str.trim().is_empty() || result_str == "null" {
             // Clean up and return None
             if let Ok(cleanup_fn) = unsafe {
-                self
-                    .library
+                self.library
                     .get::<Symbol<PluginCleanupStringFn>>(b"plugin_cleanup_string")
             } {
                 cleanup_fn(result_ptr);
@@ -258,8 +281,7 @@ impl WorkspaceProvider for DylibWorkspaceProvider {
         if value.is_null() {
             // Clean up and return None
             if let Ok(cleanup_fn) = unsafe {
-                self
-                    .library
+                self.library
                     .get::<Symbol<PluginCleanupStringFn>>(b"plugin_cleanup_string")
             } {
                 cleanup_fn(result_ptr);
@@ -272,8 +294,7 @@ impl WorkspaceProvider for DylibWorkspaceProvider {
 
         // Clean up the string if cleanup function exists
         if let Ok(cleanup_fn) = unsafe {
-            self
-                .library
+            self.library
                 .get::<Symbol<PluginCleanupStringFn>>(b"plugin_cleanup_string")
         } {
             cleanup_fn(result_ptr);
@@ -289,6 +310,10 @@ impl WorkspaceProvider for DylibWorkspaceProvider {
 }
 
 impl MartyPlugin for DylibWorkspaceProvider {
+    fn plugin_type(&self) -> PluginType {
+        self.plugin_type
+    }
+
     fn name(&self) -> &str {
         &self.name
     }
