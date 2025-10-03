@@ -3,9 +3,8 @@ name: Publish Plugins
 on:
   push:
     branches: [main]
-    paths:
-      - 'plugins/*/Cargo.toml'
-      - 'plugins/*/src/**'
+    tags:
+      - 'marty-plugin-*-v*'
   workflow_dispatch:
 
 permissions:
@@ -26,35 +25,105 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # fetch full history so diffs and tags work reliably
+          fetch-depth: 0
 
-      - name: Detect changed plugins
+      - name: Detect changed plugins (push or tag)
         id: changes
         run: |
-          if git diff HEAD~1 --name-only | grep -q "plugins/cargo/"; then
-            echo "cargo=true" >> $GITHUB_OUTPUT
-          else
-            echo "cargo=false" >> $GITHUB_OUTPUT
-          fi
-          
-          if git diff HEAD~1 --name-only | grep -q "plugins/pnpm/"; then
-            echo "pnpm=true" >> $GITHUB_OUTPUT
-          else
-            echo "pnpm=false" >> $GITHUB_OUTPUT
-          fi
-          
-          if git diff HEAD~1 --name-only | grep -q "plugins/typescript/"; then
-            echo "typescript=true" >> $GITHUB_OUTPUT
-          else
-            echo "typescript=false" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          REF_NAME="${GITHUB_REF_NAME:-}"
+          REF_TYPE="${GITHUB_REF_TYPE:-}"
+          BASE_SHA="${{ github.event.before }}"
+          if [[ -z "${BASE_SHA}" || "${BASE_SHA}" == "0000000000000000000000000000000000000000" ]]; then
+            # Fallback for cases like first commit or tag-only
+            BASE_SHA="HEAD~1"
           fi
 
-      - name: Extract versions
+          if [[ "${REF_TYPE}" == "tag" ]]; then
+            # Tag-driven run: infer which plugin from tag name
+            echo "Detected tag push: ${REF_NAME}"
+            if [[ "${REF_NAME}" == marty-plugin-cargo-v* ]]; then
+              echo "cargo=true" >> $GITHUB_OUTPUT
+              echo "pnpm=false" >> $GITHUB_OUTPUT
+              echo "typescript=false" >> $GITHUB_OUTPUT
+              echo "tagged-plugin=cargo" >> $GITHUB_OUTPUT
+            elif [[ "${REF_NAME}" == marty-plugin-pnpm-v* ]]; then
+              echo "cargo=false" >> $GITHUB_OUTPUT
+              echo "pnpm=true" >> $GITHUB_OUTPUT
+              echo "typescript=false" >> $GITHUB_OUTPUT
+              echo "tagged-plugin=pnpm" >> $GITHUB_OUTPUT
+            elif [[ "${REF_NAME}" == marty-plugin-typescript-v* ]]; then
+              echo "cargo=false" >> $GITHUB_OUTPUT
+              echo "pnpm=false" >> $GITHUB_OUTPUT
+              echo "typescript=true" >> $GITHUB_OUTPUT
+              echo "tagged-plugin=typescript" >> $GITHUB_OUTPUT
+            else
+              # Unknown tag pattern; default to no changes
+              echo "cargo=false" >> $GITHUB_OUTPUT
+              echo "pnpm=false" >> $GITHUB_OUTPUT
+              echo "typescript=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Push to main: detect file changes in last commit range
+            if git diff --name-only "${BASE_SHA}"..HEAD | grep -q "^plugins/cargo/"; then
+              echo "cargo=true" >> $GITHUB_OUTPUT
+            else
+              echo "cargo=false" >> $GITHUB_OUTPUT
+            fi
+
+            if git diff --name-only "${BASE_SHA}"..HEAD | grep -q "^plugins/pnpm/"; then
+              echo "pnpm=true" >> $GITHUB_OUTPUT
+            else
+              echo "pnpm=false" >> $GITHUB_OUTPUT
+            fi
+
+            if git diff --name-only "${BASE_SHA}"..HEAD | grep -q "^plugins/typescript/"; then
+              echo "typescript=true" >> $GITHUB_OUTPUT
+            else
+              echo "typescript=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Extract versions (from Cargo.toml or tag)
         id: versions
         run: |
-          echo "cargo-version=$(cargo metadata --format-version 1 --manifest-path plugins/cargo/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-cargo") | .version')" >> $GITHUB_OUTPUT
-          echo "pnpm-version=$(cargo metadata --format-version 1 --manifest-path plugins/pnpm/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-pnpm") | .version')" >> $GITHUB_OUTPUT
-          echo "typescript-version=$(cargo metadata --format-version 1 --manifest-path plugins/typescript/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-typescript") | .version')" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          REF_NAME="${GITHUB_REF_NAME:-}"
+          REF_TYPE="${GITHUB_REF_TYPE:-}"
+
+          # Helper to parse version from tag
+          parse_tag_version() {
+            case "$1" in
+              marty-plugin-cargo-v*) echo "${1#marty-plugin-cargo-v}" ;;
+              marty-plugin-pnpm-v*) echo "${1#marty-plugin-pnpm-v}" ;;
+              marty-plugin-typescript-v*) echo "${1#marty-plugin-typescript-v}" ;;
+              *) echo "" ;;
+            esac
+          }
+
+          if [[ "${REF_TYPE}" == "tag" ]]; then
+            VERS="$(parse_tag_version "${REF_NAME}")"
+            if [[ "${REF_NAME}" == marty-plugin-cargo-v* ]]; then
+              echo "cargo-version=${VERS}" >> $GITHUB_OUTPUT
+            else
+              echo "cargo-version=$(cargo metadata --format-version 1 --manifest-path plugins/cargo/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-cargo") | .version')" >> $GITHUB_OUTPUT
+            fi
+            if [[ "${REF_NAME}" == marty-plugin-pnpm-v* ]]; then
+              echo "pnpm-version=${VERS}" >> $GITHUB_OUTPUT
+            else
+              echo "pnpm-version=$(cargo metadata --format-version 1 --manifest-path plugins/pnpm/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-pnpm") | .version')" >> $GITHUB_OUTPUT
+            fi
+            if [[ "${REF_NAME}" == marty-plugin-typescript-v* ]]; then
+              echo "typescript-version=${VERS}" >> $GITHUB_OUTPUT
+            else
+              echo "typescript-version=$(cargo metadata --format-version 1 --manifest-path plugins/typescript/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-typescript") | .version')" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "cargo-version=$(cargo metadata --format-version 1 --manifest-path plugins/cargo/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-cargo") | .version')" >> $GITHUB_OUTPUT
+            echo "pnpm-version=$(cargo metadata --format-version 1 --manifest-path plugins/pnpm/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-pnpm") | .version')" >> $GITHUB_OUTPUT
+            echo "typescript-version=$(cargo metadata --format-version 1 --manifest-path plugins/typescript/Cargo.toml | jq -r '.packages[] | select(.name == "marty-plugin-typescript") | .version')" >> $GITHUB_OUTPUT
+          fi
 
   publish-cargo-plugin:
     needs: detect-changes
